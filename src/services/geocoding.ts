@@ -1,5 +1,5 @@
-// Nominatim Geocoding Service (free, rate-limited 1 req/sec)
-// https://nominatim.org/release-docs/latest/api/Search/
+// Mapbox Geocoding Service
+// 100,000 free requests/month
 
 export interface GeocodingResult {
   lat: number;
@@ -7,60 +7,38 @@ export interface GeocodingResult {
   displayName: string;
 }
 
-const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org/search';
-
-// Rate limiting: max 1 request per second
-let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 1100; // 1.1 seconds to be safe
-
-async function waitForRateLimit(): Promise<void> {
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequestTime;
-  
-  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-    await new Promise(resolve => 
-      setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest)
-    );
-  }
-  
-  lastRequestTime = Date.now();
-}
-
 export async function geocodeAddress(address: string): Promise<GeocodingResult | null> {
   try {
-    await waitForRateLimit();
+    const token = import.meta.env.VITE_MAPBOX_TOKEN;
     
-    // Add "Lima, Peru" context for better results
-    const searchQuery = address.toLowerCase().includes('lima') 
+    if (!token) {
+      console.error('Mapbox token not configured');
+      return null;
+    }
+    
+    // Add Peru context for better results
+    const searchQuery = address.toLowerCase().includes('peru') || address.toLowerCase().includes('lima')
       ? address 
       : `${address}, Lima, Peru`;
     
-    const params = new URLSearchParams({
-      q: searchQuery,
-      format: 'json',
-      limit: '1',
-      addressdetails: '1',
-    });
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${token}&limit=1&country=PE`;
     
-    const response = await fetch(`${NOMINATIM_BASE_URL}?${params}`, {
-      headers: {
-        'User-Agent': 'RutaViva-MVP/1.0 (logistics tracking app)',
-      },
-    });
+    const response = await fetch(url);
     
     if (!response.ok) {
       console.error('Geocoding request failed:', response.status);
       return null;
     }
     
-    const results = await response.json();
+    const data = await response.json();
     
-    if (results && results.length > 0) {
-      const result = results[0];
+    if (data.features && data.features.length > 0) {
+      const feature = data.features[0];
+      const [lng, lat] = feature.center;
       return {
-        lat: parseFloat(result.lat),
-        lng: parseFloat(result.lon),
-        displayName: result.display_name,
+        lat,
+        lng,
+        displayName: feature.place_name,
       };
     }
     
@@ -90,6 +68,11 @@ export async function geocodeAddresses(
     
     if (onProgress) {
       onProgress(i + 1, addresses.length);
+    }
+    
+    // Small delay to avoid rate limiting (Mapbox is more lenient than Nominatim)
+    if (i < addresses.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
   
