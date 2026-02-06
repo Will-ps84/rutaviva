@@ -16,15 +16,8 @@ export function MapboxView({ stops, center, zoom = 12, className = '' }: MapboxV
   useEffect(() => {
     if (!mapContainer.current) return;
     
-    // Use VITE_MAPBOX_TOKEN (the secret we configured)
-    const token = import.meta.env.VITE_MAPBOX_TOKEN;
-    
-    if (!token) {
-      console.error('Mapbox token not found. Please set VITE_MAPBOX_TOKEN');
-      return;
-    }
-    
-    mapboxgl.accessToken = token;
+    // Public Mapbox token (pk.* tokens are designed to be public)
+    mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbHBzODQiLCJhIjoiY21sYjUxZXZ3MG4zcjNycTBvMWZ5ZGh3OSJ9.JvfwdqhWlRi2D_1D8xSzww';
     
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
