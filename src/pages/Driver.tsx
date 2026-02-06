@@ -164,6 +164,11 @@ export default function Driver() {
 
   return (
     <div className="min-h-screen bg-background p-4 pb-32">
+      {/* Debug banner - confirma que estás en /driver */}
+      <div className="bg-primary text-primary-foreground text-center py-2 mb-4 rounded-lg text-sm font-medium">
+        ✓ Página /driver cargada correctamente
+      </div>
+      
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
