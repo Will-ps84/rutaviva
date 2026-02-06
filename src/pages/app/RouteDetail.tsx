@@ -43,7 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { RouteMap } from '@/components/maps/RouteMap';
+import { MapboxView } from '@/components/maps/MapboxView';
 import { useRoute, useUpdateRoute, useUpdateRouteStop, RouteStop } from '@/hooks/useRoutes';
 import { useDrivers, useVehicles } from '@/hooks/useDrivers';
 import { toast } from '@/hooks/use-toast';
@@ -288,7 +288,16 @@ export default function RouteDetail() {
           </CardHeader>
           <CardContent>
             <div className="h-[400px] lg:h-[500px]">
-              <RouteMap stops={stops} />
+              <MapboxView 
+                stops={stops
+                  .filter(s => s.lat !== null && s.lng !== null)
+                  .map(s => ({
+                    lat: s.lat!,
+                    lng: s.lng!,
+                    address: s.address_text,
+                    seq: s.seq,
+                  }))} 
+              />
             </div>
           </CardContent>
         </Card>
