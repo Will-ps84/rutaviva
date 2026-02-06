@@ -163,7 +163,7 @@ export default function Driver() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-28">
+    <div className="min-h-screen bg-background p-4 pb-32">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -335,17 +335,48 @@ export default function Driver() {
         </Card>
       )}
 
+      {/* Current Status Display */}
+      <Card className="mb-4 border-2 border-primary/20">
+        <CardContent className="pt-4">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-1">Estado Actual</p>
+            <p className="text-2xl font-bold">
+              {trackingStatus === 'idle' && 'Inactivo'}
+              {trackingStatus === 'active' && '🟢 En Ruta'}
+              {trackingStatus === 'paused' && '🟡 Pausado'}
+            </p>
+            {lastSentAt && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Última actualización: hace {formatTimeSince(lastSentAt)}
+              </p>
+            )}
+            {position && trackingStatus !== 'idle' && (
+              <p className="text-xs text-muted-foreground">
+                Precisión GPS: {position.accuracy?.toFixed(0)}m | Puntos: {sendCount}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Fixed Bottom Controls */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border safe-area-bottom">
-        <div className="max-w-md mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t border-border safe-area-bottom z-50">
+        <div className="max-w-md mx-auto space-y-2">
+          {/* Status indicator */}
+          <div className="text-center text-sm text-muted-foreground mb-2">
+            {trackingStatus === 'idle' && 'Presiona para comenzar el tracking GPS'}
+            {trackingStatus === 'active' && `Enviando ubicación cada 5 segundos...`}
+            {trackingStatus === 'paused' && 'Tracking pausado - tus ubicaciones no se envían'}
+          </div>
+
           {trackingStatus === 'idle' && (
             <Button 
-              className="w-full h-14 text-lg gap-2 bg-status-active hover:bg-status-active/90" 
+              className="w-full h-16 text-xl gap-3 bg-status-active hover:bg-status-active/90 text-status-active-foreground font-bold shadow-lg" 
               onClick={handleStartRoute}
               disabled={permissionStatus === 'denied'}
             >
-              <Play className="h-6 w-6" />
-              Iniciar Ruta
+              <Play className="h-7 w-7" />
+              INICIAR RUTA
             </Button>
           )}
 
@@ -353,19 +384,18 @@ export default function Driver() {
             <div className="grid grid-cols-2 gap-3">
               <Button 
                 variant="outline" 
-                className="h-14 text-lg gap-2 border-status-warning text-status-warning hover:bg-status-warning/10"
+                className="h-16 text-lg gap-2 border-2 border-status-warning text-status-warning hover:bg-status-warning-bg font-semibold"
                 onClick={handlePauseRoute}
               >
-                <Pause className="h-5 w-5" />
-                Pausar
+                <Pause className="h-6 w-6" />
+                PAUSAR
               </Button>
               <Button 
-                variant="destructive" 
-                className="h-14 text-lg gap-2"
+                className="h-16 text-lg gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
                 onClick={handleEndRoute}
               >
-                <Square className="h-5 w-5" />
-                Finalizar
+                <Square className="h-6 w-6" />
+                FINALIZAR
               </Button>
             </div>
           )}
@@ -373,19 +403,18 @@ export default function Driver() {
           {trackingStatus === 'paused' && (
             <div className="grid grid-cols-2 gap-3">
               <Button 
-                className="h-14 text-lg gap-2 bg-status-active hover:bg-status-active/90"
+                className="h-16 text-lg gap-2 bg-status-active hover:bg-status-active/90 text-status-active-foreground font-semibold"
                 onClick={handleResumeRoute}
               >
-                <Play className="h-5 w-5" />
-                Continuar
+                <Play className="h-6 w-6" />
+                CONTINUAR
               </Button>
               <Button 
-                variant="destructive" 
-                className="h-14 text-lg gap-2"
+                className="h-16 text-lg gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
                 onClick={handleEndRoute}
               >
-                <Square className="h-5 w-5" />
-                Finalizar
+                <Square className="h-6 w-6" />
+                FINALIZAR
               </Button>
             </div>
           )}
