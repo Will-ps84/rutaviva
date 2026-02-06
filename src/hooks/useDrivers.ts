@@ -27,19 +27,31 @@ export function useDrivers() {
   return useQuery({
     queryKey: ['drivers'],
     queryFn: async () => {
-      // Get profiles that have driver role in user_roles
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          *,
-          user_roles!inner(role)
-        `)
-        .eq('user_roles.role', 'driver');
+      // First get driver user_ids from user_roles (no FK join needed)
+      const { data: driverRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'driver');
       
-      if (error) throw error;
-      return data as Driver[];
+      if (rolesError) throw rolesError;
+      
+      if (!driverRoles || driverRoles.length === 0) {
+        return [] as Driver[];
+      }
+      
+      // Then fetch profiles for those user_ids
+      const driverIds = driverRoles.map(r => r.user_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', driverIds);
+      
+      if (profilesError) throw profilesError;
+      return (profiles || []) as Driver[];
     },
     enabled: !!user,
+    retry: 2,
+    staleTime: 30000,
   });
 }
 

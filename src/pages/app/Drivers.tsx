@@ -46,8 +46,8 @@ import { toast } from '@/hooks/use-toast';
 
 export default function DriversPage() {
   const { data: company, isLoading: companyLoading } = useUserCompany();
-  const { data: drivers, isLoading: driversLoading } = useDrivers();
-  const { data: vehicles, isLoading: vehiclesLoading } = useVehicles();
+  const { data: drivers, isLoading: driversLoading, error: driversError, refetch: refetchDrivers } = useDrivers();
+  const { data: vehicles, isLoading: vehiclesLoading, error: vehiclesError, refetch: refetchVehicles } = useVehicles();
   const createVehicle = useCreateVehicle();
   const deleteVehicle = useDeleteVehicle();
   
@@ -128,6 +128,31 @@ export default function DriversPage() {
   }
   
   const isLoading = companyLoading || driversLoading || vehiclesLoading;
+  const hasError = driversError || vehiclesError;
+  
+  if (hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-destructive mb-2">
+            Error cargando conductores/vehículos
+          </h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            {driversError?.message || vehiclesError?.message || 'Error desconocido'}
+          </p>
+        </div>
+        <Button 
+          onClick={() => {
+            refetchDrivers();
+            refetchVehicles();
+          }}
+          variant="outline"
+        >
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
   
   if (isLoading) {
     return (
