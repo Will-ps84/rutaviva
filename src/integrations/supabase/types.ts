@@ -67,6 +67,117 @@ export type Database = {
           },
         ]
       }
+      route_stops: {
+        Row: {
+          address_text: string
+          created_at: string
+          id: string
+          lat: number | null
+          lng: number | null
+          notes: string | null
+          planned_window_end: string | null
+          planned_window_start: string | null
+          route_id: string
+          seq: number
+          status: Database["public"]["Enums"]["stop_status"]
+        }
+        Insert: {
+          address_text: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          notes?: string | null
+          planned_window_end?: string | null
+          planned_window_start?: string | null
+          route_id: string
+          seq: number
+          status?: Database["public"]["Enums"]["stop_status"]
+        }
+        Update: {
+          address_text?: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          notes?: string | null
+          planned_window_end?: string | null
+          planned_window_start?: string | null
+          route_id?: string
+          seq?: number
+          status?: Database["public"]["Enums"]["stop_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_stops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routes: {
+        Row: {
+          company_id: string
+          created_at: string
+          date: string
+          driver_id: string | null
+          id: string
+          name: string
+          polyline: string | null
+          status: Database["public"]["Enums"]["route_status"]
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          date?: string
+          driver_id?: string | null
+          id?: string
+          name: string
+          polyline?: string | null
+          status?: Database["public"]["Enums"]["route_status"]
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          date?: string
+          driver_id?: string | null
+          id?: string
+          name?: string
+          polyline?: string | null
+          status?: Database["public"]["Enums"]["route_status"]
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routes_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
@@ -99,6 +210,38 @@ export type Database = {
           },
         ]
       }
+      vehicles: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          label: string | null
+          plate: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          plate: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          plate?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -116,9 +259,12 @@ export type Database = {
         Args: { _company_id: string }
         Returns: boolean
       }
+      user_can_access_route: { Args: { _route_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "dispatcher" | "driver" | "viewer"
+      route_status: "draft" | "published" | "in_progress" | "done"
+      stop_status: "pending" | "arrived" | "done" | "skipped"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -247,6 +393,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "dispatcher", "driver", "viewer"],
+      route_status: ["draft", "published", "in_progress", "done"],
+      stop_status: ["pending", "arrived", "done", "skipped"],
     },
   },
 } as const
