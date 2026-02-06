@@ -11,6 +11,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import Dispatch from "./pages/app/Dispatch";
 import RoutesPage from "./pages/app/Routes";
+import RouteDetail from "./pages/app/RouteDetail";
 import Drivers from "./pages/app/Drivers";
 import Settings from "./pages/app/Settings";
 import Driver from "./pages/Driver";
@@ -45,6 +46,7 @@ const App = () => (
             >
               <Route index element={<Dispatch />} />
               <Route path="routes" element={<RoutesPage />} />
+              <Route path="routes/:id" element={<RouteDetail />} />
               <Route path="drivers" element={<Drivers />} />
               <Route path="settings" element={<Settings />} />
             </Route>

@@ -1,13 +1,30 @@
-import { MapPin, Truck, AlertTriangle, Clock, Signal } from 'lucide-react';
+import { MapPin, Truck, AlertTriangle, Clock, Signal, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CompanySetupCard } from '@/components/company/CompanySetupCard';
+import { useUserCompany } from '@/hooks/useCompany';
 
 export default function Dispatch() {
+  const { data: company, isLoading: companyLoading } = useUserCompany();
+  
+  // Show company setup if no company
+  if (!companyLoading && !company) {
+    return <CompanySetupCard />;
+  }
+  
+  if (companyLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div>
         <h1 className="font-display text-2xl font-bold">Dashboard de Despacho</h1>
         <p className="text-muted-foreground">
-          Monitorea tu flota en tiempo real
+          Monitorea tu flota en tiempo real - {company?.name}
         </p>
       </div>
 
@@ -18,8 +35,8 @@ export default function Dispatch() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               En Ruta
             </CardTitle>
-            <div className="w-8 h-8 rounded-full bg-status-active-bg flex items-center justify-center">
-              <Truck className="h-4 w-4 text-status-active" />
+            <div className="w-8 h-8 rounded-full bg-[hsl(var(--status-active-bg))] flex items-center justify-center">
+              <Truck className="h-4 w-4 text-[hsl(var(--status-active))]" />
             </div>
           </CardHeader>
           <CardContent>
@@ -33,8 +50,8 @@ export default function Dispatch() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Parados
             </CardTitle>
-            <div className="w-8 h-8 rounded-full bg-status-warning-bg flex items-center justify-center">
-              <Clock className="h-4 w-4 text-status-warning" />
+            <div className="w-8 h-8 rounded-full bg-[hsl(var(--status-warning-bg))] flex items-center justify-center">
+              <Clock className="h-4 w-4 text-[hsl(var(--status-warning))]" />
             </div>
           </CardHeader>
           <CardContent>
@@ -48,8 +65,8 @@ export default function Dispatch() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Alertas
             </CardTitle>
-            <div className="w-8 h-8 rounded-full bg-status-danger-bg flex items-center justify-center">
-              <AlertTriangle className="h-4 w-4 text-status-danger" />
+            <div className="w-8 h-8 rounded-full bg-[hsl(var(--status-danger-bg))] flex items-center justify-center">
+              <AlertTriangle className="h-4 w-4 text-[hsl(var(--status-danger))]" />
             </div>
           </CardHeader>
           <CardContent>
@@ -63,8 +80,8 @@ export default function Dispatch() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Sin Señal
             </CardTitle>
-            <div className="w-8 h-8 rounded-full bg-status-inactive-bg flex items-center justify-center">
-              <Signal className="h-4 w-4 text-status-inactive" />
+            <div className="w-8 h-8 rounded-full bg-[hsl(var(--status-inactive-bg))] flex items-center justify-center">
+              <Signal className="h-4 w-4 text-[hsl(var(--status-inactive))]" />
             </div>
           </CardHeader>
           <CardContent>
