@@ -1,19 +1,32 @@
 import { useState } from 'react';
-import { Building2, Loader2 } from 'lucide-react';
+import { Building2, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCreateCompany } from '@/hooks/useCompany';
 
 export function CompanySetupCard() {
   const [companyName, setCompanyName] = useState('');
+  const [visibleError, setVisibleError] = useState<string | null>(null);
   const createCompany = useCreateCompany();
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setVisibleError(null);
+    
     if (companyName.trim()) {
-      createCompany.mutate(companyName.trim());
+      createCompany.mutate(companyName.trim(), {
+        onError: (error) => {
+          setVisibleError(error.message);
+        },
+        onSuccess: () => {
+          setVisibleError(null);
+          // Force page reload to refresh all state
+          window.location.reload();
+        },
+      });
     }
   };
   
@@ -31,6 +44,17 @@ export function CompanySetupCard() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Visible Error Display */}
+            {visibleError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription className="text-sm break-all">
+                  {visibleError}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="company-name">Nombre de la empresa</Label>
               <Input

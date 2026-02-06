@@ -53,16 +53,42 @@ export function useCreateCompany() {
     mutationFn: async (name: string) => {
       if (!user) throw new Error('Usuario no autenticado');
       
-      // Create company - trigger handles:
-      // 1. Auto-updating profile.company_id
-      // 2. Assigning admin role to creator
+      // Step 1: Create company (RLS disabled, should work)
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .insert({ name })
         .select()
         .single();
       
-      if (companyError) throw companyError;
+      if (companyError) {
+        throw new Error(`Error creando empresa: ${companyError.message}`);
+      }
+      
+      // Step 2: Update profile with company_id
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ company_id: company.id })
+        .eq('id', user.id);
+      
+      if (profileError) {
+        throw new Error(`Error actualizando perfil: ${profileError.message}`);
+      }
+      
+      // Step 3: Create admin role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: user.id,
+          company_id: company.id,
+          role: 'admin',
+        });
+      
+      if (roleError) {
+        throw new Error(`Error asignando rol admin: ${roleError.message}`);
+      }
+      
+      // Step 4: Refresh session to get new claims
+      await supabase.auth.refreshSession();
       
       return company;
     },
@@ -75,6 +101,7 @@ export function useCreateCompany() {
       });
     },
     onError: (error) => {
+      console.error('Error completo:', error);
       toast({
         title: 'Error al crear empresa',
         description: error.message,
