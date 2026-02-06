@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ export function CompanySetupCard() {
   const [companyName, setCompanyName] = useState('');
   const [visibleError, setVisibleError] = useState<string | null>(null);
   const createCompany = useCreateCompany();
+  const navigate = useNavigate();
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,8 +25,7 @@ export function CompanySetupCard() {
         },
         onSuccess: () => {
           setVisibleError(null);
-          // Force page reload to refresh all state
-          window.location.reload();
+          navigate('/app/routes');
         },
       });
     }
