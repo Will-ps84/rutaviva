@@ -27,26 +27,42 @@ export function useDrivers() {
   return useQuery({
     queryKey: ['drivers'],
     queryFn: async () => {
+      console.log('[useDrivers] Fetching drivers - NEW CODE v2');
+      
       // First get driver user_ids from user_roles (no FK join needed)
       const { data: driverRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'driver');
       
-      if (rolesError) throw rolesError;
+      console.log('[useDrivers] Driver roles result:', { driverRoles, rolesError });
+      
+      if (rolesError) {
+        console.error('[useDrivers] Error fetching driver roles:', rolesError);
+        throw rolesError;
+      }
       
       if (!driverRoles || driverRoles.length === 0) {
+        console.log('[useDrivers] No drivers found, returning empty array');
         return [] as Driver[];
       }
       
       // Then fetch profiles for those user_ids
       const driverIds = driverRoles.map(r => r.user_id);
+      console.log('[useDrivers] Fetching profiles for driver IDs:', driverIds);
+      
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .in('id', driverIds);
       
-      if (profilesError) throw profilesError;
+      console.log('[useDrivers] Profiles result:', { profiles, profilesError });
+      
+      if (profilesError) {
+        console.error('[useDrivers] Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
+      
       return (profiles || []) as Driver[];
     },
     enabled: !!user,
@@ -61,15 +77,24 @@ export function useVehicles() {
   return useQuery({
     queryKey: ['vehicles'],
     queryFn: async () => {
+      console.log('[useVehicles] Fetching vehicles - NEW CODE v2');
+      
       const { data, error } = await supabase
         .from('vehicles')
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      console.log('[useVehicles] Result:', { data, error });
+      
+      if (error) {
+        console.error('[useVehicles] Error:', error);
+        throw error;
+      }
       return data as Vehicle[];
     },
     enabled: !!user,
+    retry: 2,
+    staleTime: 30000,
   });
 }
 
