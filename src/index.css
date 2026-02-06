@@ -222,4 +222,9 @@
     background: hsl(var(--muted-foreground) / 0.3);
     border-radius: 3px;
   }
+
+  /* Safe area for mobile devices with notches */
+  .safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
 }

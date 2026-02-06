@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { 
@@ -9,23 +9,61 @@ import {
   Signal, 
   Clock,
   Truck,
-  LogOut
+  LogOut,
+  Navigation,
+  AlertCircle,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useDriverProfile, useDriverTodayRoute, useUpdateRouteStatus } from '@/hooks/useDriverRoute';
+import { useLocationTracking } from '@/hooks/useLocationTracking';
+import { toast } from '@/hooks/use-toast';
 
-type RouteStatus = 'idle' | 'active' | 'paused';
+type TrackingStatus = 'idle' | 'active' | 'paused';
 
 export default function Driver() {
-  const { user, loading, signOut } = useAuth();
-  const [routeStatus, setRouteStatus] = useState<RouteStatus>('idle');
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { data: profile, isLoading: profileLoading } = useDriverProfile();
+  const { data: todayRoute, isLoading: routeLoading, refetch: refetchRoute } = useDriverTodayRoute();
+  const { updateStatus } = useUpdateRouteStatus();
+  
+  const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>('idle');
 
-  if (loading) {
+  // Initialize location tracking
+  const {
+    position,
+    isTracking,
+    permissionStatus,
+    lastSentAt,
+    sendCount,
+    sendError,
+    startTracking,
+    stopTracking,
+    requestPermission,
+  } = useLocationTracking({
+    driverId: user?.id || '',
+    companyId: profile?.company_id || '',
+    routeId: todayRoute?.id,
+    throttleMs: 5000, // Send every 5 seconds
+  });
+
+  // Sync tracking status with actual tracking state
+  useEffect(() => {
+    if (isTracking && trackingStatus === 'idle') {
+      setTrackingStatus('active');
+    }
+  }, [isTracking, trackingStatus]);
+
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Cargando...</p>
+        </div>
       </div>
     );
   }
@@ -34,27 +72,98 @@ export default function Driver() {
     return <Navigate to="/login" replace />;
   }
 
-  const handleStartRoute = () => {
-    setRouteStatus('active');
-    setLastUpdate(new Date());
+  const handleStartRoute = async () => {
+    // Request permission first
+    const granted = await requestPermission();
+    
+    if (!granted) {
+      toast({
+        title: 'Permiso requerido',
+        description: 'Necesitas permitir el acceso a tu ubicación para iniciar el tracking.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Update route status if there's an assigned route
+    if (todayRoute && todayRoute.status === 'published') {
+      try {
+        await updateStatus(todayRoute.id, 'in_progress');
+        refetchRoute();
+      } catch (error) {
+        console.error('Error updating route status:', error);
+      }
+    }
+
+    startTracking();
+    setTrackingStatus('active');
+    
+    toast({
+      title: 'Tracking iniciado',
+      description: 'Tu ubicación se está enviando cada 5 segundos.',
+    });
   };
 
   const handlePauseRoute = () => {
-    setRouteStatus('paused');
+    stopTracking();
+    setTrackingStatus('paused');
+    
+    toast({
+      title: 'Tracking pausado',
+      description: 'Tu ubicación no se está enviando.',
+    });
   };
 
   const handleResumeRoute = () => {
-    setRouteStatus('active');
-    setLastUpdate(new Date());
+    startTracking();
+    setTrackingStatus('active');
+    
+    toast({
+      title: 'Tracking reanudado',
+      description: 'Tu ubicación se está enviando nuevamente.',
+    });
   };
 
-  const handleEndRoute = () => {
-    setRouteStatus('idle');
-    setLastUpdate(null);
+  const handleEndRoute = async () => {
+    stopTracking();
+    setTrackingStatus('idle');
+    
+    // Update route status to done if there's an assigned route
+    if (todayRoute && todayRoute.status === 'in_progress') {
+      try {
+        await updateStatus(todayRoute.id, 'done');
+        refetchRoute();
+      } catch (error) {
+        console.error('Error updating route status:', error);
+      }
+    }
+    
+    toast({
+      title: 'Ruta finalizada',
+      description: `Se enviaron ${sendCount} puntos de ubicación.`,
+    });
+  };
+
+  const getStatusBadge = () => {
+    switch (trackingStatus) {
+      case 'active':
+        return <Badge className="bg-status-active text-white">En Ruta</Badge>;
+      case 'paused':
+        return <Badge className="bg-status-warning text-white">Pausado</Badge>;
+      default:
+        return <Badge variant="outline" className="text-muted-foreground">Inactivo</Badge>;
+    }
+  };
+
+  const formatTimeSince = (date: Date) => {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}m ${seconds % 60}s`;
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-24">
+    <div className="min-h-screen bg-background p-4 pb-28">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -71,104 +180,180 @@ export default function Driver() {
         </Button>
       </div>
 
-      {/* Status card */}
-      <Card className="mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-            Estado de la ruta
-            <Badge 
-              variant="outline"
-              className={
-                routeStatus === 'active' 
-                  ? 'status-active' 
-                  : routeStatus === 'paused' 
-                    ? 'status-warning' 
-                    : 'status-inactive'
-              }
-            >
-              {routeStatus === 'active' && 'En ruta'}
-              {routeStatus === 'paused' && 'Pausada'}
-              {routeStatus === 'idle' && 'Sin iniciar'}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {routeStatus !== 'idle' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <Signal className="h-4 w-4 text-status-active" />
-                  <span>GPS Activo</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    {lastUpdate 
-                      ? `Hace ${Math.floor((Date.now() - lastUpdate.getTime()) / 1000)}s`
-                      : 'Sin datos'
-                    }
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {routeStatus === 'idle' && (
-              <p className="text-center text-muted-foreground py-4">
-                Presiona "Iniciar ruta" para comenzar el tracking
-              </p>
-            )}
+      {/* Driver Info Card */}
+      <Card className="mb-4">
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Conductor</p>
+              <p className="font-semibold">{profile?.full_name || 'Sin nombre'}</p>
+            </div>
+            {getStatusBadge()}
           </div>
         </CardContent>
       </Card>
 
-      {/* Current stop placeholder */}
-      <Card className="mb-6">
+      {/* Route Status Card */}
+      <Card className="mb-4">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            Próxima parada
+            <Navigation className="h-4 w-4" />
+            Ruta de Hoy
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No hay ruta asignada</p>
-            <p className="text-sm">La información de paradas aparecerá aquí</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Map placeholder */}
-      <Card className="h-[200px] mb-6">
-        <CardContent className="p-0 h-full">
-          <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center">
-            <div className="text-center">
-              <MapPin className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Mapa disponible en Etapa 3
-              </p>
+          {routeLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          </div>
+          ) : todayRoute ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{todayRoute.name}</span>
+                <Badge variant="outline">
+                  {todayRoute.stops.length} paradas
+                </Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {todayRoute.stops.filter(s => s.status === 'done').length} de {todayRoute.stops.length} completadas
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No tienes ruta asignada para hoy</p>
+              <p className="text-xs">Puedes iniciar tracking sin ruta</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Fixed bottom controls */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
+      {/* GPS Status Card */}
+      {trackingStatus !== 'idle' && (
+        <Card className="mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Signal className={trackingStatus === 'active' ? 'text-status-active' : 'text-status-warning'} />
+              Estado del GPS
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                {trackingStatus === 'active' ? (
+                  <CheckCircle2 className="h-4 w-4 text-status-active" />
+                ) : (
+                  <Pause className="h-4 w-4 text-status-warning" />
+                )}
+                <span>{trackingStatus === 'active' ? 'Enviando' : 'Pausado'}</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span>
+                  {lastSentAt ? `Hace ${formatTimeSince(lastSentAt)}` : 'Esperando...'}
+                </span>
+              </div>
+              
+              {position && (
+                <>
+                  <div className="col-span-2 text-xs text-muted-foreground">
+                    <MapPin className="h-3 w-3 inline mr-1" />
+                    {position.latitude.toFixed(6)}, {position.longitude.toFixed(6)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Precisión: {position.accuracy?.toFixed(0)}m
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Puntos enviados: {sendCount}
+                  </div>
+                </>
+              )}
+              
+              {sendError && (
+                <div className="col-span-2 text-xs text-destructive">
+                  Error: {sendError}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Next Stop Card (if route exists) */}
+      {todayRoute && todayRoute.stops.length > 0 && (
+        <Card className="mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Próxima Parada
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const nextStop = todayRoute.stops.find(s => s.status === 'pending');
+              if (!nextStop) {
+                return (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-status-active" />
+                    <p>¡Todas las paradas completadas!</p>
+                  </div>
+                );
+              }
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+                      {nextStop.seq}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{nextStop.address_text}</p>
+                      {nextStop.notes && (
+                        <p className="text-xs text-muted-foreground mt-1">{nextStop.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Permission Warning */}
+      {permissionStatus === 'denied' && (
+        <Card className="mb-4 border-destructive">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <div>
+                <p className="font-medium">Ubicación bloqueada</p>
+                <p className="text-xs">Habilita el GPS en la configuración de tu navegador</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Fixed Bottom Controls */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border safe-area-bottom">
         <div className="max-w-md mx-auto">
-          {routeStatus === 'idle' && (
+          {trackingStatus === 'idle' && (
             <Button 
-              className="w-full h-14 text-lg gap-2" 
+              className="w-full h-14 text-lg gap-2 bg-status-active hover:bg-status-active/90" 
               onClick={handleStartRoute}
+              disabled={permissionStatus === 'denied'}
             >
               <Play className="h-6 w-6" />
               Iniciar Ruta
             </Button>
           )}
 
-          {routeStatus === 'active' && (
+          {trackingStatus === 'active' && (
             <div className="grid grid-cols-2 gap-3">
               <Button 
                 variant="outline" 
-                className="h-14 text-lg gap-2"
+                className="h-14 text-lg gap-2 border-status-warning text-status-warning hover:bg-status-warning/10"
                 onClick={handlePauseRoute}
               >
                 <Pause className="h-5 w-5" />
@@ -185,10 +370,10 @@ export default function Driver() {
             </div>
           )}
 
-          {routeStatus === 'paused' && (
+          {trackingStatus === 'paused' && (
             <div className="grid grid-cols-2 gap-3">
               <Button 
-                className="h-14 text-lg gap-2"
+                className="h-14 text-lg gap-2 bg-status-active hover:bg-status-active/90"
                 onClick={handleResumeRoute}
               >
                 <Play className="h-5 w-5" />
