@@ -32,6 +32,70 @@ export type Database = {
         }
         Relationships: []
       }
+      location_points: {
+        Row: {
+          accuracy_m: number | null
+          company_id: string
+          created_at: string | null
+          driver_id: string
+          heading: number | null
+          id: string
+          lat: number
+          lng: number
+          recorded_at: string
+          route_id: string | null
+          speed_mps: number | null
+        }
+        Insert: {
+          accuracy_m?: number | null
+          company_id: string
+          created_at?: string | null
+          driver_id: string
+          heading?: number | null
+          id?: string
+          lat: number
+          lng: number
+          recorded_at: string
+          route_id?: string | null
+          speed_mps?: number | null
+        }
+        Update: {
+          accuracy_m?: number | null
+          company_id?: string
+          created_at?: string | null
+          driver_id?: string
+          heading?: number | null
+          id?: string
+          lat?: number
+          lng?: number
+          recorded_at?: string
+          route_id?: string | null
+          speed_mps?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_points_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_points_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_points_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           company_id: string | null
