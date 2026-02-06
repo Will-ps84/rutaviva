@@ -53,7 +53,9 @@ export function useCreateCompany() {
     mutationFn: async (name: string) => {
       if (!user) throw new Error('Usuario no autenticado');
       
-      // Create company (trigger auto-updates profile.company_id)
+      // Create company - trigger handles:
+      // 1. Auto-updating profile.company_id
+      // 2. Assigning admin role to creator
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .insert({ name })
@@ -61,17 +63,6 @@ export function useCreateCompany() {
         .single();
       
       if (companyError) throw companyError;
-      
-      // Create admin role for this user
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: user.id,
-          company_id: company.id,
-          role: 'admin',
-        });
-      
-      if (roleError) throw roleError;
       
       return company;
     },
