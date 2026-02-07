@@ -57,7 +57,7 @@ export function useDriverTodayRoute() {
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
       
-      // Get routes assigned to this driver for today
+      // Get routes assigned to this driver for today (including done for reactivation)
       const { data: routes, error: routesError } = await supabase
         .from('routes')
         .select(`
@@ -69,7 +69,7 @@ export function useDriverTodayRoute() {
         `)
         .eq('driver_id', user.id)
         .eq('date', today)
-        .in('status', ['published', 'in_progress'])
+        .in('status', ['published', 'in_progress', 'done'])
         .order('created_at', { ascending: false })
         .limit(1);
       
@@ -104,14 +104,44 @@ export function useUpdateRouteStatus() {
   const { user } = useAuth();
   
   const updateStatus = async (routeId: string, status: 'in_progress' | 'done') => {
+    // Only set completed_at when finishing, clear it when reactivating
+    if (status === 'done') {
+      const { error } = await supabase
+        .from('routes')
+        .update({
+          status: 'done' as const,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', routeId)
+        .eq('driver_id', user?.id);
+      
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('routes')
+        .update({
+          status: 'in_progress' as const,
+          completed_at: null,
+        })
+        .eq('id', routeId)
+        .eq('driver_id', user?.id);
+      
+      if (error) throw error;
+    }
+  };
+  
+  const reactivateRoute = async (routeId: string) => {
     const { error } = await supabase
       .from('routes')
-      .update({ status })
+      .update({
+        status: 'in_progress' as const,
+        completed_at: null,
+      })
       .eq('id', routeId)
-      .eq('driver_id', user?.id); // Extra safety check
+      .eq('driver_id', user?.id);
     
     if (error) throw error;
   };
   
-  return { updateStatus };
+  return { updateStatus, reactivateRoute };
 }

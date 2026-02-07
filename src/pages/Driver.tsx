@@ -13,7 +13,8 @@ import {
   Navigation,
   AlertCircle,
   CheckCircle2,
-  Loader2
+  Loader2,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +29,8 @@ export default function Driver() {
   const { user, loading: authLoading, signOut } = useAuth();
   const { data: profile, isLoading: profileLoading } = useDriverProfile();
   const { data: todayRoute, isLoading: routeLoading, refetch: refetchRoute } = useDriverTodayRoute();
-  const { updateStatus } = useUpdateRouteStatus();
+  const { updateStatus, reactivateRoute } = useUpdateRouteStatus();
+  const [isReactivating, setIsReactivating] = useState(false);
   
   const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>('idle');
 
@@ -103,6 +105,47 @@ export default function Driver() {
       description: 'Tu ubicación se está enviando cada 5 segundos.',
     });
   };
+  
+  const handleReactivateRoute = async () => {
+    if (!todayRoute) return;
+    
+    setIsReactivating(true);
+    
+    // Request permission first
+    const granted = await requestPermission();
+    
+    if (!granted) {
+      toast({
+        title: 'Permiso requerido',
+        description: 'Necesitas permitir el acceso a tu ubicación para retomar la ruta.',
+        variant: 'destructive',
+      });
+      setIsReactivating(false);
+      return;
+    }
+
+    try {
+      await reactivateRoute(todayRoute.id);
+      refetchRoute();
+      
+      startTracking();
+      setTrackingStatus('active');
+      
+      toast({
+        title: 'Ruta retomada',
+        description: 'Tu ubicación se está enviando nuevamente.',
+      });
+    } catch (error) {
+      console.error('Error reactivating route:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo retomar la ruta.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsReactivating(false);
+    }
+  };
 
   const handlePauseRoute = () => {
     stopTracking();
@@ -125,6 +168,7 @@ export default function Driver() {
   };
 
   const handleEndRoute = async () => {
+    // Only stop GPS and update status - DO NOT unassign driver/vehicle
     stopTracking();
     setTrackingStatus('idle');
     
@@ -140,7 +184,7 @@ export default function Driver() {
     
     toast({
       title: 'Ruta finalizada',
-      description: `Se enviaron ${sendCount} puntos de ubicación.`,
+      description: `Se enviaron ${sendCount} puntos de ubicación. El conductor y vehículo permanecen asignados.`,
     });
   };
 
@@ -215,13 +259,21 @@ export default function Driver() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium">{todayRoute.name}</span>
-                <Badge variant="outline">
-                  {todayRoute.stops.length} paradas
+                <Badge 
+                  variant="outline"
+                  className={todayRoute.status === 'done' ? 'bg-status-active/10 text-status-active border-status-active' : ''}
+                >
+                  {todayRoute.status === 'done' ? 'Completada' : `${todayRoute.stops.length} paradas`}
                 </Badge>
               </div>
               <div className="text-sm text-muted-foreground">
                 {todayRoute.stops.filter(s => s.status === 'done').length} de {todayRoute.stops.length} completadas
               </div>
+              {todayRoute.status === 'done' && (
+                <p className="text-xs text-muted-foreground">
+                  Puedes retomar esta ruta usando el botón de abajo
+                </p>
+              )}
             </div>
           ) : (
             <div className="text-center py-4 text-muted-foreground">
@@ -374,7 +426,22 @@ export default function Driver() {
             {trackingStatus === 'paused' && 'Tracking pausado - tus ubicaciones no se envían'}
           </div>
 
-          {trackingStatus === 'idle' && (
+          {trackingStatus === 'idle' && todayRoute?.status === 'done' && (
+            <Button 
+              className="w-full h-16 text-xl gap-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg" 
+              onClick={handleReactivateRoute}
+              disabled={permissionStatus === 'denied' || isReactivating}
+            >
+              {isReactivating ? (
+                <Loader2 className="h-7 w-7 animate-spin" />
+              ) : (
+                <RotateCcw className="h-7 w-7" />
+              )}
+              RETOMAR RUTA
+            </Button>
+          )}
+          
+          {trackingStatus === 'idle' && todayRoute?.status !== 'done' && (
             <Button 
               className="w-full h-16 text-xl gap-3 bg-status-active hover:bg-status-active/90 text-status-active-foreground font-bold shadow-lg" 
               onClick={handleStartRoute}
