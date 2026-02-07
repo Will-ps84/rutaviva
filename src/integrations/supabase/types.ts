@@ -184,6 +184,7 @@ export type Database = {
       routes: {
         Row: {
           company_id: string
+          completed_at: string | null
           created_at: string
           date: string
           driver_id: string | null
@@ -196,6 +197,7 @@ export type Database = {
         }
         Insert: {
           company_id: string
+          completed_at?: string | null
           created_at?: string
           date?: string
           driver_id?: string | null
@@ -208,6 +210,7 @@ export type Database = {
         }
         Update: {
           company_id?: string
+          completed_at?: string | null
           created_at?: string
           date?: string
           driver_id?: string | null

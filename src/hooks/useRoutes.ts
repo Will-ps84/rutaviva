@@ -12,6 +12,7 @@ export interface Route {
   driver_id: string | null;
   vehicle_id: string | null;
   polyline: string | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -214,6 +215,42 @@ export function useDeleteRoute() {
       toast({
         title: 'Ruta eliminada',
         description: 'La ruta fue eliminada correctamente.',
+      });
+    },
+  });
+}
+
+export function useReactivateRoute() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (routeId: string) => {
+      const { data, error } = await supabase
+        .from('routes')
+        .update({
+          status: 'in_progress',
+          completed_at: null,
+        })
+        .eq('id', routeId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['route', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['routes'] });
+      toast({
+        title: 'Ruta reactivada',
+        description: 'La ruta ahora está en progreso nuevamente.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error al reactivar',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });

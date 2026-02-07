@@ -44,9 +44,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { MapboxView } from '@/components/maps/MapboxView';
-import { useRoute, useUpdateRoute, useUpdateRouteStop, RouteStop } from '@/hooks/useRoutes';
+import { useRoute, useUpdateRoute, useUpdateRouteStop, useReactivateRoute, RouteStop } from '@/hooks/useRoutes';
 import { useDrivers, useVehicles } from '@/hooks/useDrivers';
 import { toast } from '@/hooks/use-toast';
+import { RotateCcw } from 'lucide-react';
 
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
@@ -78,11 +79,13 @@ export default function RouteDetail() {
   const { data: vehicles } = useVehicles();
   const updateRoute = useUpdateRoute();
   const updateStop = useUpdateRouteStop();
+  const reactivateRoute = useReactivateRoute();
   
   const [editingStop, setEditingStop] = useState<string | null>(null);
   const [editLat, setEditLat] = useState('');
   const [editLng, setEditLng] = useState('');
   const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [showReactivateDialog, setShowReactivateDialog] = useState(false);
   
   const handleDriverChange = (driverId: string) => {
     if (!id) return;
@@ -158,6 +161,12 @@ export default function RouteDetail() {
     setShowPublishDialog(false);
   };
   
+  const handleReactivate = () => {
+    if (!id) return;
+    reactivateRoute.mutate(id);
+    setShowReactivateDialog(false);
+  };
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -207,6 +216,16 @@ export default function RouteDetail() {
             <Button onClick={() => setShowPublishDialog(true)}>
               <Send className="mr-2 h-4 w-4" />
               Publicar Ruta
+            </Button>
+          )}
+          {route.status === 'done' && (
+            <Button 
+              variant="outline" 
+              onClick={() => setShowReactivateDialog(true)}
+              disabled={reactivateRoute.isPending}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reactivar Ruta
             </Button>
           )}
         </div>
@@ -421,6 +440,34 @@ export default function RouteDetail() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handlePublish}>
               Publicar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Reactivate Confirmation */}
+      <AlertDialog open={showReactivateDialog} onOpenChange={setShowReactivateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Reactivar esta ruta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La ruta volverá al estado "En Progreso". El conductor y vehículo asignados se mantendrán.
+              {route.driver?.full_name && (
+                <span className="block mt-2">
+                  Conductor: <strong>{route.driver.full_name}</strong>
+                </span>
+              )}
+              {route.vehicle && (
+                <span className="block mt-1">
+                  Vehículo: <strong>{route.vehicle.plate}</strong>
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReactivate}>
+              Reactivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
