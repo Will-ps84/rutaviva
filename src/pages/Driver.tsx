@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { useDriverProfile, useDriverTodayRoute, useUpdateRouteStatus } from '@/hooks/useDriverRoute';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
 import { toast } from '@/hooks/use-toast';
+import { DriverStopsList } from '@/components/driver/DriverStopsList';
 
 type TrackingStatus = 'idle' | 'active' | 'paused';
 
@@ -337,44 +338,13 @@ export default function Driver() {
         </Card>
       )}
 
-      {/* Next Stop Card (if route exists) */}
+      {/* Stops List - Full list with mark complete buttons */}
       {todayRoute && todayRoute.stops.length > 0 && (
-        <Card className="mb-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Próxima Parada
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-              const nextStop = todayRoute.stops.find(s => s.status === 'pending');
-              if (!nextStop) {
-                return (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-status-active" />
-                    <p>¡Todas las paradas completadas!</p>
-                  </div>
-                );
-              }
-              return (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-                      {nextStop.seq}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{nextStop.address_text}</p>
-                      {nextStop.notes && (
-                        <p className="text-xs text-muted-foreground mt-1">{nextStop.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
+        <DriverStopsList
+          stops={todayRoute.stops}
+          routeStatus={todayRoute.status}
+          onStopCompleted={refetchRoute}
+        />
       )}
 
       {/* Permission Warning */}

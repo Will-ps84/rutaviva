@@ -17,6 +17,7 @@ interface DriverLocation {
 interface RealtimeMapViewProps {
   drivers: DriverLocation[];
   className?: string;
+  centerOn?: { lat: number; lng: number };
 }
 
 // Calculate status based on age
@@ -34,7 +35,7 @@ const statusColors = {
   noSignal: '#6b7280',  // gray
 };
 
-export function RealtimeMapView({ drivers, className = '' }: RealtimeMapViewProps) {
+export function RealtimeMapView({ drivers, className = '', centerOn }: RealtimeMapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<Map<string, mapboxgl.Marker>>(new Map());
@@ -154,19 +155,24 @@ export function RealtimeMapView({ drivers, className = '' }: RealtimeMapViewProp
       }
     });
 
-    // Fit bounds to show all markers
-    if (drivers.length > 0) {
+    // Fit bounds to show all markers (only on initial load or when no centerOn)
+    if (drivers.length > 0 && !centerOn) {
       const bounds = new mapboxgl.LngLatBounds();
       drivers.forEach((d) => bounds.extend([d.lng, d.lat]));
       
-      // Only fit bounds if there are multiple drivers or first load
       if (drivers.length > 1) {
         map.current.fitBounds(bounds, { padding: 80, maxZoom: 15 });
       } else if (drivers.length === 1) {
         map.current.flyTo({ center: [drivers[0].lng, drivers[0].lat], zoom: 14 });
       }
     }
-  }, [drivers]);
+  }, [drivers, centerOn]);
+
+  // Handle centerOn changes
+  useEffect(() => {
+    if (!map.current || !centerOn) return;
+    map.current.flyTo({ center: [centerOn.lng, centerOn.lat], zoom: 15 });
+  }, [centerOn]);
 
   return (
     <div
