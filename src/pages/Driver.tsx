@@ -209,9 +209,9 @@ export default function Driver() {
 
   return (
     <div className="min-h-screen bg-background p-4 pb-32">
-      {/* Debug banner - confirma que estás en /driver */}
-      <div className="bg-primary text-primary-foreground text-center py-2 mb-4 rounded-lg text-sm font-medium">
-        ✓ Página /driver cargada correctamente
+      {/* Debug banner */}
+      <div className="bg-muted text-muted-foreground text-center py-2 mb-4 rounded-lg text-xs font-mono">
+        activeRouteId: {todayRoute?.id ?? 'null'} | lastRouteId (GPS): {todayRoute?.id ?? 'none'} | sendCount: {sendCount}
       </div>
       
       {/* Header */}
