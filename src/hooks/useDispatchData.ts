@@ -83,6 +83,9 @@ export function useDriverLocations() {
 
     setIsLoading(true);
     
+    // Only fetch recent points (last 10 min) to avoid pulling thousands of rows
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    
     const { data, error } = await supabase
       .from('location_points')
       .select(`
@@ -96,6 +99,7 @@ export function useDriverLocations() {
         route_id
       `)
       .eq('company_id', company.id)
+      .gte('recorded_at', tenMinAgo)
       .order('recorded_at', { ascending: false });
 
     if (error) {
@@ -378,10 +382,16 @@ export function useFilteredData(
   return useMemo(() => {
     let filteredLocations = [...locations];
     let filteredRoutes = [...activeRoutes];
+    
+    // Build a driver→location map from ALL locations (before route filter)
+    // This ensures last_location lookup works even when route_id is null
+    const allLocationsMap = new Map(locations.map(l => [l.driver_id, l]));
 
-    // Filter by route
+    // Filter by route - keep locations with matching route_id OR null route_id (with warning flag)
     if (filters.routeId) {
-      filteredLocations = filteredLocations.filter(l => l.route_id === filters.routeId);
+      filteredLocations = filteredLocations.filter(
+        l => l.route_id === filters.routeId || l.route_id === null
+      );
       filteredRoutes = filteredRoutes.filter(r => r.id === filters.routeId);
     }
 
@@ -417,16 +427,19 @@ export function useFilteredData(
       filteredLocations = filteredLocations.filter(l => activeRouteDriverIds.has(l.driver_id));
     }
 
-    // Enrich routes with last location
-    const locationsMap = new Map(filteredLocations.map(l => [l.driver_id, l]));
+    // Enrich routes with last location - use allLocationsMap (by driver_id, not route_id)
     filteredRoutes = filteredRoutes.map(route => ({
       ...route,
-      last_location: route.driver_id ? locationsMap.get(route.driver_id) : undefined,
+      last_location: route.driver_id ? allLocationsMap.get(route.driver_id) : undefined,
     }));
+
+    // Check for null route_id locations
+    const hasNullRouteLocations = filteredLocations.some(l => l.route_id === null);
 
     return {
       locations: filteredLocations,
       routes: filteredRoutes,
+      hasNullRouteLocations,
     };
   }, [locations, activeRoutes, filters]);
 }

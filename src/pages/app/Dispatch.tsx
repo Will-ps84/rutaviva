@@ -36,7 +36,7 @@ export default function Dispatch() {
   const kpis = useDispatchKPIs(stats, activeRoutes);
   
   // Apply filters
-  const { locations: filteredLocations, routes: filteredRoutes } = useFilteredData(
+  const { locations: filteredLocations, routes: filteredRoutes, hasNullRouteLocations } = useFilteredData(
     locations,
     activeRoutes,
     filters
@@ -49,9 +49,9 @@ export default function Dispatch() {
   };
 
   // Get center point for selected route
-  const selectedRouteLocation = selectedRouteId
-    ? filteredLocations.find(l => l.route_id === selectedRouteId)
-    : null;
+  // Get center point for selected route - find by driver_id since route_id may be null
+  const selectedRoute = selectedRouteId ? filteredRoutes.find(r => r.id === selectedRouteId) : null;
+  const selectedRouteLocation = selectedRoute?.last_location || null;
 
   // Show company setup if no company
   if (!companyLoading && !company) {
@@ -102,6 +102,13 @@ export default function Dispatch() {
         avgProgress={kpis.avgProgress}
         noSignal={stats.noSignal}
       />
+
+      {/* Warning for null route_id */}
+      {hasNullRouteLocations && filters.routeId && (
+        <div className="bg-[hsl(var(--status-warning-bg))] text-[hsl(var(--status-warning))] text-sm px-4 py-2 rounded-lg">
+          ⚠ Puntos sin ruta asociada — algunos puntos GPS no tienen route_id asignado.
+        </div>
+      )}
 
       {/* Main Content: Map + Routes List */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
