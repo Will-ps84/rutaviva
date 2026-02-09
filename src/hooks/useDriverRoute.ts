@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { format } from 'date-fns';
+
 
 export interface DriverRoute {
   id: string;
@@ -50,14 +50,13 @@ export function useDriverProfile() {
 
 export function useDriverTodayRoute() {
   const { user } = useAuth();
-  const today = format(new Date(), 'yyyy-MM-dd');
   
   return useQuery({
-    queryKey: ['driver-today-route', user?.id, today],
+    queryKey: ['driver-active-route', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
       
-      // Get routes assigned to this driver for today (including done for reactivation)
+      // Get active route assigned to this driver (no date filter to avoid timezone issues)
       const { data: routes, error: routesError } = await supabase
         .from('routes')
         .select(`
@@ -68,8 +67,8 @@ export function useDriverTodayRoute() {
           vehicle_id
         `)
         .eq('driver_id', user.id)
-        .eq('date', today)
         .in('status', ['published', 'in_progress', 'done'])
+        .order('date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(1);
       
