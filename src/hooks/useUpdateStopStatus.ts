@@ -11,7 +11,7 @@ export function useUpdateStopStatus() {
       status 
     }: { 
       stopId: string; 
-      status: 'pending' | 'arrived' | 'done' | 'skipped';
+      status: 'pending' | 'arrived' | 'done' | 'skipped' | 'failed';
     }) => {
       const { data, error } = await supabase
         .from('route_stops')
