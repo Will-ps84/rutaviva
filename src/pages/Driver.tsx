@@ -76,6 +76,15 @@ export default function Driver() {
   }
 
   const handleStartRoute = async () => {
+    // Warn if no active route
+    if (!todayRoute || !['published', 'in_progress'].includes(todayRoute.status)) {
+      toast({
+        title: '⚠️ Sin ruta asignada',
+        description: 'Estás enviando GPS sin ruta asociada. Contacta a tu despachador.',
+        variant: 'destructive',
+      });
+    }
+
     // Request permission first
     const granted = await requestPermission();
     
@@ -103,7 +112,9 @@ export default function Driver() {
     
     toast({
       title: 'Tracking iniciado',
-      description: 'Tu ubicación se está enviando cada 5 segundos.',
+      description: todayRoute 
+        ? `Enviando GPS con ruta: ${todayRoute.name}` 
+        : 'Tu ubicación se está enviando cada 5 segundos (sin ruta).',
     });
   };
   
@@ -277,10 +288,11 @@ export default function Driver() {
               )}
             </div>
           ) : (
-            <div className="text-center py-4 text-muted-foreground">
-              <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No tienes ruta asignada para hoy</p>
-              <p className="text-xs">Puedes iniciar tracking sin ruta</p>
+            <div className="text-center py-4">
+              <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive opacity-70" />
+              <p className="font-medium text-destructive">⚠️ No tienes ruta asignada</p>
+              <p className="text-xs text-muted-foreground mt-1">Contacta a tu despachador para que te asigne una ruta.</p>
+              <p className="text-xs text-muted-foreground">Puedes iniciar tracking sin ruta, pero los puntos no tendrán route_id.</p>
             </div>
           )}
         </CardContent>
