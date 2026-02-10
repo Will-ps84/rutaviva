@@ -1,0 +1,1 @@
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;

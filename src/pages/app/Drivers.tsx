@@ -7,6 +7,7 @@ import {
   Trash2,
   Phone,
   Mail,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CompanySetupCard } from '@/components/company/CompanySetupCard';
+import { ImportDriversDialog } from '@/components/drivers/ImportDriversDialog';
+import { ImportVehiclesDialog } from '@/components/drivers/ImportVehiclesDialog';
 import { useDrivers, useVehicles, useCreateVehicle, useDeleteVehicle } from '@/hooks/useDrivers';
 import { useUserCompany } from '@/hooks/useCompany';
 import { toast } from '@/hooks/use-toast';
@@ -64,6 +67,10 @@ export default function DriversPage() {
   
   // Delete confirmation
   const [deleteVehicleId, setDeleteVehicleId] = useState<string | null>(null);
+  
+  // Import dialogs
+  const [showImportDrivers, setShowImportDrivers] = useState(false);
+  const [showImportVehicles, setShowImportVehicles] = useState(false);
   
   const handleInviteDriver = async () => {
     // For MVP: Show info about manual driver creation
@@ -198,10 +205,16 @@ export default function DriversPage() {
                   Lista de conductores registrados en tu empresa
                 </CardDescription>
               </div>
-              <Button onClick={() => setShowDriverDialog(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar Conductor
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowImportDrivers(true)}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importar
+                </Button>
+                <Button onClick={() => setShowDriverDialog(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Conductor
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {drivers && drivers.length > 0 ? (
@@ -263,10 +276,16 @@ export default function DriversPage() {
                   Lista de vehículos de tu flota
                 </CardDescription>
               </div>
-              <Button onClick={() => setShowVehicleDialog(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar Vehículo
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowImportVehicles(true)}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importar
+                </Button>
+                <Button onClick={() => setShowVehicleDialog(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Vehículo
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {vehicles && vehicles.length > 0 ? (
@@ -436,6 +455,18 @@ export default function DriversPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Import Dialogs */}
+      <ImportDriversDialog
+        open={showImportDrivers}
+        onOpenChange={setShowImportDrivers}
+        onImportComplete={() => refetchDrivers()}
+      />
+      <ImportVehiclesDialog
+        open={showImportVehicles}
+        onOpenChange={setShowImportVehicles}
+        onImportComplete={() => refetchVehicles()}
+      />
     </div>
   );
 }

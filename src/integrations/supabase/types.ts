@@ -279,25 +279,31 @@ export type Database = {
       }
       vehicles: {
         Row: {
+          capacity: number | null
           company_id: string
           created_at: string
           id: string
           label: string | null
           plate: string
+          year: number | null
         }
         Insert: {
+          capacity?: number | null
           company_id: string
           created_at?: string
           id?: string
           label?: string | null
           plate: string
+          year?: number | null
         }
         Update: {
+          capacity?: number | null
           company_id?: string
           created_at?: string
           id?: string
           label?: string | null
           plate?: string
+          year?: number | null
         }
         Relationships: [
           {
