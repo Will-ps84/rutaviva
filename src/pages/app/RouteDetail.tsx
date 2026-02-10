@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -43,6 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Progress } from '@/components/ui/progress';
 import { MapboxView } from '@/components/maps/MapboxView';
 import { useRoute, useUpdateRoute, useUpdateRouteStop, useReactivateRoute, RouteStop } from '@/hooks/useRoutes';
 import { useDrivers, useVehicles } from '@/hooks/useDrivers';
@@ -68,6 +69,15 @@ const stopStatusLabels: Record<string, string> = {
   arrived: 'En sitio',
   done: 'Completado',
   skipped: 'Omitido',
+  failed: 'Fallida',
+};
+
+const stopStatusColors: Record<string, string> = {
+  pending: 'text-muted-foreground border-muted',
+  arrived: 'text-primary border-primary',
+  done: 'text-[hsl(var(--status-active))] border-[hsl(var(--status-active))]',
+  skipped: 'text-[hsl(var(--status-warning))] border-[hsl(var(--status-warning))]',
+  failed: 'text-destructive border-destructive',
 };
 
 export default function RouteDetail() {
@@ -190,8 +200,11 @@ export default function RouteDetail() {
     );
   }
   
-  const stops = route.route_stops || [];
-  const missingCoordsCount = stops.filter(s => !s.lat || !s.lng).length;
+      const stops = route.route_stops || [];
+      const missingCoordsCount = stops.filter(s => !s.lat || !s.lng).length;
+      const completedStops = stops.filter(s => s.status === 'done').length;
+      const totalStops = stops.length;
+      const progressPercent = totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0;
   
   return (
     <div className="space-y-6">
@@ -230,6 +243,21 @@ export default function RouteDetail() {
           )}
         </div>
       </div>
+
+      {/* Progress Bar */}
+      {totalStops > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Progreso de entrega</span>
+              <Badge variant="secondary">
+                {completedStops}/{totalStops} completadas ({progressPercent}%)
+              </Badge>
+            </div>
+            <Progress value={progressPercent} className="h-3" />
+          </CardContent>
+        </Card>
+      )}
       
       {/* Assignment Cards */}
       <div className="grid md:grid-cols-2 gap-4">
@@ -372,7 +400,7 @@ export default function RouteDetail() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className={`text-xs ${stopStatusColors[stop.status] || ''}`}>
                           {stopStatusLabels[stop.status]}
                         </Badge>
                       </TableCell>
