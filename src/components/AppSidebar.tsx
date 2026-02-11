@@ -5,11 +5,14 @@ import {
   Settings, 
   Truck,
   LogOut,
-  ChevronLeft,
-  BarChart3
+  BarChart3,
+  ChevronUp,
+  User,
+  ChevronsLeft,
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserCompany } from '@/hooks/useCompany';
 import { cn } from '@/lib/utils';
 import {
   Sidebar,
@@ -22,7 +25,14 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 
 const menuItems = [
@@ -30,62 +40,70 @@ const menuItems = [
     title: 'Despacho',
     url: '/app',
     icon: LayoutDashboard,
-    description: 'Dashboard en tiempo real',
   },
   {
     title: 'Rutas',
     url: '/app/routes',
     icon: Route,
-    description: 'Gestión de rutas',
   },
   {
     title: 'Conductores',
     url: '/app/drivers',
     icon: Users,
-    description: 'Flota y personal',
   },
   {
     title: 'Reportes',
     url: '/app/reports',
     icon: BarChart3,
-    description: 'Métricas y exportación',
   },
   {
     title: 'Configuración',
     url: '/app/settings',
     icon: Settings,
-    description: 'Alertas y parámetros',
   },
 ];
 
 export function AppSidebar() {
   const { signOut, user } = useAuth();
+  const { data: company } = useUserCompany();
   const location = useLocation();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
+  const initials = user?.email
+    ? user.email.substring(0, 2).toUpperCase()
+    : 'U';
+
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-gradient-to-b from-sidebar-background to-[hsl(222,71%,3%)]">
+      {/* Logo + Company */}
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-            <Truck className="h-5 w-5 text-sidebar-primary-foreground" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[hsl(224,89%,60%)] flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/20">
+            <Truck className="h-5 w-5 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <div className="flex flex-col">
-              <span className="font-display text-lg font-bold text-sidebar-foreground">
+            <div className="flex flex-col min-w-0">
+              <span className="font-display text-lg font-bold text-sidebar-foreground tracking-tight">
                 RutaViva
               </span>
-              <span className="text-xs text-sidebar-foreground/50">
-                Tracking & Ruteo
+              <span className="text-[11px] text-sidebar-foreground/40 truncate">
+                {company?.name || 'Tracking & Ruteo'}
               </span>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
-        <SidebarMenu>
+      {!collapsed && (
+        <div className="px-4 pb-2">
+          <Separator className="bg-sidebar-border/60" />
+        </div>
+      )}
+
+      {/* Navigation */}
+      <SidebarContent className="px-3 py-1">
+        <SidebarMenu className="space-y-0.5">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.url || 
               (item.url !== '/app' && location.pathname.startsWith(item.url));
@@ -100,18 +118,23 @@ export function AppSidebar() {
                   <NavLink
                     to={item.url}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
                       isActive 
-                        ? 'bg-sidebar-accent text-sidebar-primary' 
-                        : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+                        ? 'bg-primary/10 text-sidebar-primary border border-primary/20 shadow-sm shadow-primary/5' 
+                        : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 border border-transparent'
                     )}
                   >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    <item.icon className={cn(
+                      "h-[18px] w-[18px] flex-shrink-0 transition-colors",
+                      isActive ? "text-sidebar-primary" : ""
+                    )} />
                     {!collapsed && (
-                      <div className="flex flex-col">
-                        <span className="font-medium">{item.title}</span>
-                        <span className="text-xs opacity-60">{item.description}</span>
-                      </div>
+                      <span className={cn(
+                        "text-sm",
+                        isActive ? "font-semibold" : "font-medium"
+                      )}>
+                        {item.title}
+                      </span>
                     )}
                   </NavLink>
                 </SidebarMenuButton>
@@ -121,28 +144,56 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 space-y-4">
-        <Separator className="bg-sidebar-border" />
-        
-        {!collapsed && user && (
-          <div className="px-2">
-            <p className="text-xs text-sidebar-foreground/50 truncate">
-              {user.email}
-            </p>
-          </div>
-        )}
+      {/* User section */}
+      <SidebarFooter className="p-3">
+        <Separator className="bg-sidebar-border/60 mb-3" />
 
-        <Button
-          variant="ghost"
-          className={cn(
-            'w-full text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50',
-            collapsed ? 'justify-center px-0' : 'justify-start'
-          )}
-          onClick={signOut}
-        >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && <span className="ml-3">Cerrar sesión</span>}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                'w-full flex items-center gap-3 rounded-lg transition-colors hover:bg-sidebar-accent/60',
+                collapsed ? 'justify-center p-2' : 'p-2.5'
+              )}
+            >
+              <Avatar className="h-8 w-8 border border-primary/30 flex-shrink-0">
+                <AvatarFallback className="bg-primary/20 text-sidebar-primary text-xs font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium text-sidebar-foreground truncate">
+                      {user?.email?.split('@')[0] || 'Usuario'}
+                    </p>
+                    <p className="text-[11px] text-sidebar-foreground/40 truncate">
+                      {user?.email}
+                    </p>
+                  </div>
+                  <ChevronUp className="h-4 w-4 text-sidebar-foreground/40 flex-shrink-0" />
+                </>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="w-56">
+            <DropdownMenuItem className="gap-2">
+              <User className="h-4 w-4" />
+              Perfil
+            </DropdownMenuItem>
+            <DropdownMenuItem className="gap-2" asChild>
+              <NavLink to="/app/settings">
+                <Settings className="h-4 w-4" />
+                Configuración
+              </NavLink>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-2 text-destructive focus:text-destructive" onClick={signOut}>
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
     </Sidebar>
   );
