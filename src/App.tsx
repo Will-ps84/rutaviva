@@ -14,6 +14,7 @@ import RoutesPage from "./pages/app/Routes";
 import RouteDetail from "./pages/app/RouteDetail";
 import Drivers from "./pages/app/Drivers";
 import Settings from "./pages/app/Settings";
+import Reports from "./pages/app/Reports";
 import Driver from "./pages/Driver";
 import Track from "./pages/Track";
 import NotFound from "./pages/NotFound";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="routes" element={<RoutesPage />} />
               <Route path="routes/:id" element={<RouteDetail />} />
               <Route path="drivers" element={<Drivers />} />
+              <Route path="reports" element={<Reports />} />
               <Route path="settings" element={<Settings />} />
             </Route>
 
