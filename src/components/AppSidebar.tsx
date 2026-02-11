@@ -5,7 +5,8 @@ import {
   Settings, 
   Truck,
   LogOut,
-  ChevronLeft
+  ChevronLeft,
+  BarChart3
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,6 +43,12 @@ const menuItems = [
     url: '/app/drivers',
     icon: Users,
     description: 'Flota y personal',
+  },
+  {
+    title: 'Reportes',
+    url: '/app/reports',
+    icon: BarChart3,
+    description: 'Métricas y exportación',
   },
   {
     title: 'Configuración',
