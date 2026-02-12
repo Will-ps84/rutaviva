@@ -343,6 +343,7 @@ export default function RouteDetail() {
                     lng: s.lng!,
                     address: s.address_text,
                     seq: s.seq,
+                    status: s.status,
                   }))} 
               />
             </div>

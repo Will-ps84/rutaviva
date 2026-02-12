@@ -5,6 +5,7 @@ export interface GeocodingResult {
   lat: number;
   lng: number;
   displayName: string;
+  confidence: 'high' | 'medium' | 'low';
 }
 
 export async function geocodeAddress(address: string): Promise<GeocodingResult | null> {
@@ -16,12 +17,24 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
       return null;
     }
     
-    // Add Peru context for better results
-    const searchQuery = address.toLowerCase().includes('peru') || address.toLowerCase().includes('lima')
-      ? address 
-      : `${address}, Lima, Peru`;
+    let searchAddress = address.trim();
+    const lower = searchAddress.toLowerCase();
     
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${token}&limit=1&country=PE`;
+    // Normalize: add city if no known Peruvian city is mentioned
+    if (!lower.match(/lima|callao|arequipa|trujillo|piura|cusco|chiclayo|huancayo|ica|tacna/)) {
+      searchAddress = `${searchAddress}, Lima`;
+    }
+    
+    // Normalize: add country if not mentioned
+    if (!lower.match(/peru|perú/)) {
+      searchAddress = `${searchAddress}, Peru`;
+    }
+    
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchAddress)}.json?` +
+      `access_token=${token}&` +
+      `country=PE&` +
+      `limit=1&` +
+      `language=es`;
     
     const response = await fetch(url);
     
@@ -35,16 +48,23 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
     if (data.features && data.features.length > 0) {
       const feature = data.features[0];
       const [lng, lat] = feature.center;
+      const relevance = feature.relevance || 0;
+      const confidence: 'high' | 'medium' | 'low' = relevance > 0.8 ? 'high' : relevance > 0.4 ? 'medium' : 'low';
+      
+      console.log(`✅ Geocoded: "${address}" → (${lat}, ${lng}) [${confidence}]`);
+      
       return {
         lat,
         lng,
         displayName: feature.place_name,
+        confidence,
       };
     }
     
+    console.warn(`⚠️ No results for: "${address}"`);
     return null;
   } catch (error) {
-    console.error('Geocoding error:', error);
+    console.error('❌ Geocoding error:', error);
     return null;
   }
 }
@@ -70,7 +90,7 @@ export async function geocodeAddresses(
       onProgress(i + 1, addresses.length);
     }
     
-    // Small delay to avoid rate limiting (Mapbox is more lenient than Nominatim)
+    // Small delay to avoid rate limiting
     if (i < addresses.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
