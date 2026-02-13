@@ -5,17 +5,14 @@ import { es } from 'date-fns/locale';
 import { 
   ArrowLeft, 
   MapPin, 
-  Edit2, 
-  Check, 
-  X, 
   Send,
   Loader2,
   Truck,
   User,
   AlertCircle,
 } from 'lucide-react';
+import { EditStopDialog } from '@/components/routes/EditStopDialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -45,7 +42,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Progress } from '@/components/ui/progress';
 import { MapboxView } from '@/components/maps/MapboxView';
-import { useRoute, useUpdateRoute, useUpdateRouteStop, useReactivateRoute, RouteStop } from '@/hooks/useRoutes';
+import { useRoute, useUpdateRoute, useReactivateRoute } from '@/hooks/useRoutes';
 import { useDrivers, useVehicles } from '@/hooks/useDrivers';
 import { toast } from '@/hooks/use-toast';
 import { RotateCcw } from 'lucide-react';
@@ -88,12 +85,9 @@ export default function RouteDetail() {
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
   const updateRoute = useUpdateRoute();
-  const updateStop = useUpdateRouteStop();
+  
   const reactivateRoute = useReactivateRoute();
   
-  const [editingStop, setEditingStop] = useState<string | null>(null);
-  const [editLat, setEditLat] = useState('');
-  const [editLng, setEditLng] = useState('');
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showReactivateDialog, setShowReactivateDialog] = useState(false);
   
@@ -111,44 +105,6 @@ export default function RouteDetail() {
       id,
       vehicle_id: vehicleId === 'none' ? null : vehicleId,
     });
-  };
-  
-  const handleEditStop = (stop: RouteStop) => {
-    setEditingStop(stop.id);
-    setEditLat(stop.lat?.toString() || '');
-    setEditLng(stop.lng?.toString() || '');
-  };
-  
-  const handleSaveStop = (stop: RouteStop) => {
-    const lat = editLat ? parseFloat(editLat) : null;
-    const lng = editLng ? parseFloat(editLng) : null;
-    
-    if (editLat && (isNaN(lat!) || lat! < -90 || lat! > 90)) {
-      toast({
-        title: 'Error',
-        description: 'Latitud inválida (debe estar entre -90 y 90)',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    if (editLng && (isNaN(lng!) || lng! < -180 || lng! > 180)) {
-      toast({
-        title: 'Error',
-        description: 'Longitud inválida (debe estar entre -180 y 180)',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    updateStop.mutate({
-      id: stop.id,
-      route_id: stop.route_id,
-      lat,
-      lng,
-    });
-    
-    setEditingStop(null);
   };
   
   const handlePublish = () => {
@@ -377,22 +333,7 @@ export default function RouteDetail() {
                         {stop.address_text}
                       </TableCell>
                       <TableCell>
-                        {editingStop === stop.id ? (
-                          <div className="flex gap-1">
-                            <Input
-                              className="w-16 h-7 text-xs"
-                              placeholder="Lat"
-                              value={editLat}
-                              onChange={(e) => setEditLat(e.target.value)}
-                            />
-                            <Input
-                              className="w-16 h-7 text-xs"
-                              placeholder="Lng"
-                              value={editLng}
-                              onChange={(e) => setEditLng(e.target.value)}
-                            />
-                          </div>
-                        ) : stop.lat && stop.lng ? (
+                        {stop.lat && stop.lng ? (
                           <span className="text-xs text-muted-foreground">
                             {stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}
                           </span>
@@ -406,36 +347,7 @@ export default function RouteDetail() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {editingStop === stop.id ? (
-                          <div className="flex gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
-                              onClick={() => handleSaveStop(stop)}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
-                              onClick={() => setEditingStop(null)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => handleEditStop(stop)}
-                            disabled={route.status === 'done'}
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                        )}
+                        <EditStopDialog stop={stop} disabled={route.status === 'done'} />
                       </TableCell>
                     </TableRow>
                   ))}
