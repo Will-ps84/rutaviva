@@ -1,20 +1,50 @@
-import { useState } from 'react';
-import { format } from 'date-fns';
+import { useState, useMemo } from 'react';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Download, CalendarDays, Users, Route, Truck, CheckCircle2, XCircle, SkipForward, Clock } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Download,
+  CalendarDays,
+  CalendarIcon,
+  Users,
+  Route,
+  Truck,
+  CheckCircle2,
+  XCircle,
+  SkipForward,
+  Clock,
+  Filter,
+} from 'lucide-react';
 import {
   useDailySummary,
   useRouteReports,
   useDriverReports,
   useVehicleReports,
+  type ReportFilters,
 } from '@/hooks/useReportsData';
+import { useDrivers, useVehicles } from '@/hooks/useDrivers';
 import { exportToExcel } from '@/lib/exportExcel';
 
 const statusLabels: Record<string, string> = {
@@ -25,19 +55,75 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function Reports() {
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const today = new Date();
+  const [dateFrom, setDateFrom] = useState<Date>(today);
+  const [dateTo, setDateTo] = useState<Date>(today);
+  const [driverId, setDriverId] = useState('all');
+  const [vehicleId, setVehicleId] = useState('all');
 
-  const { data: summary, isLoading: loadingSummary } = useDailySummary(date);
-  const { data: routeReports, isLoading: loadingRoutes } = useRouteReports(date);
-  const { data: driverReports, isLoading: loadingDrivers } = useDriverReports(date);
-  const { data: vehicleReports, isLoading: loadingVehicles } = useVehicleReports(date);
+  const { data: drivers } = useDrivers();
+  const { data: vehicles } = useVehicles();
 
-  const formattedDate = format(new Date(date + 'T12:00:00'), "EEEE d 'de' MMMM, yyyy", { locale: es });
+  const filters: ReportFilters = useMemo(() => ({
+    dateFrom: format(dateFrom, 'yyyy-MM-dd'),
+    dateTo: format(dateTo, 'yyyy-MM-dd'),
+    driverId,
+    vehicleId,
+  }), [dateFrom, dateTo, driverId, vehicleId]);
+
+  const { data: summary, isLoading: loadingSummary } = useDailySummary(filters);
+  const { data: routeReports, isLoading: loadingRoutes } = useRouteReports(filters);
+  const { data: driverReports, isLoading: loadingDrivers } = useDriverReports(filters);
+  const { data: vehicleReports, isLoading: loadingVehicles } = useVehicleReports(filters);
+
+  const setQuickRange = (range: string) => {
+    const now = new Date();
+    switch (range) {
+      case 'today':
+        setDateFrom(now);
+        setDateTo(now);
+        break;
+      case 'yesterday': {
+        const y = subDays(now, 1);
+        setDateFrom(y);
+        setDateTo(y);
+        break;
+      }
+      case 'week':
+        setDateFrom(startOfWeek(now, { weekStartsOn: 1 }));
+        setDateTo(endOfWeek(now, { weekStartsOn: 1 }));
+        break;
+      case 'month':
+        setDateFrom(startOfMonth(now));
+        setDateTo(endOfMonth(now));
+        break;
+      case 'last7':
+        setDateFrom(subDays(now, 6));
+        setDateTo(now);
+        break;
+      case 'last30':
+        setDateFrom(subDays(now, 29));
+        setDateTo(now);
+        break;
+    }
+  };
+
+  const handleReset = () => {
+    setDateFrom(today);
+    setDateTo(today);
+    setDriverId('all');
+    setVehicleId('all');
+  };
+
+  const rangeLabel = dateFrom.toDateString() === dateTo.toDateString()
+    ? format(dateFrom, "d 'de' MMMM, yyyy", { locale: es })
+    : `${format(dateFrom, 'dd/MM/yyyy')} – ${format(dateTo, 'dd/MM/yyyy')}`;
 
   const handleExportRoutes = () => {
     if (!routeReports) return;
     exportToExcel(
       routeReports.map(r => ({
+        Fecha: r.date,
         Ruta: r.name,
         Estado: statusLabels[r.status] || r.status,
         Conductor: r.driverName || '—',
@@ -48,7 +134,7 @@ export default function Reports() {
         Fallidas: r.failedStops,
         'Duración (min)': r.durationMin ?? '—',
       })),
-      `rutas_${date}`
+      `rutas_${filters.dateFrom}_${filters.dateTo}`
     );
   };
 
@@ -64,7 +150,7 @@ export default function Reports() {
         Fallidas: d.failedStops,
         'Duración prom. (min)': d.avgDurationMin,
       })),
-      `conductores_${date}`
+      `conductores_${filters.dateFrom}_${filters.dateTo}`
     );
   };
 
@@ -79,7 +165,7 @@ export default function Reports() {
         'Paradas totales': v.totalStops,
         Entregas: v.doneStops,
       })),
-      `vehiculos_${date}`
+      `vehiculos_${filters.dateFrom}_${filters.dateTo}`
     );
   };
 
@@ -95,20 +181,129 @@ export default function Reports() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Reportes</h1>
-          <p className="text-sm text-muted-foreground capitalize">{formattedDate}</p>
+          <p className="text-sm text-muted-foreground capitalize">{rangeLabel}</p>
         </div>
-        <Input
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          className="w-44"
-        />
       </div>
+
+      {/* Filters Card */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Filter className="h-4 w-4" /> Filtros
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Date From */}
+            <div className="space-y-1.5">
+              <Label>Desde</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(dateFrom, 'dd/MM/yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={(d) => d && setDateFrom(d)}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Date To */}
+            <div className="space-y-1.5">
+              <Label>Hasta</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(dateTo, 'dd/MM/yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={(d) => d && setDateTo(d)}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Driver filter */}
+            <div className="space-y-1.5">
+              <Label>Conductor</Label>
+              <Select value={driverId} onValueChange={setDriverId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {drivers?.map(d => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.full_name || 'Sin nombre'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Vehicle filter */}
+            <div className="space-y-1.5">
+              <Label>Vehículo</Label>
+              <Select value={vehicleId} onValueChange={setVehicleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {vehicles?.map(v => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.plate} {v.label ? `- ${v.label}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Clock className="w-4 h-4 mr-1.5" />
+                  Rangos rápidos
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setQuickRange('today')}>Hoy</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickRange('yesterday')}>Ayer</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickRange('last7')}>Últimos 7 días</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickRange('week')}>Esta semana</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickRange('month')}>Este mes</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setQuickRange('last30')}>Últimos 30 días</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="ghost" size="sm" onClick={handleReset}>
+              Limpiar filtros
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="daily" className="space-y-4">
         <TabsList>
           <TabsTrigger value="daily" className="gap-1.5">
-            <CalendarDays className="h-4 w-4" /> Resumen Diario
+            <CalendarDays className="h-4 w-4" /> Resumen
           </TabsTrigger>
           <TabsTrigger value="routes" className="gap-1.5">
             <Route className="h-4 w-4" /> Por Ruta
@@ -135,7 +330,7 @@ export default function Reports() {
               <StatCard icon={<Clock className="h-5 w-5 text-muted-foreground" />} label="Tiempo prom./ruta" value={summary.avgTimePerRouteMin > 0 ? fmtDuration(summary.avgTimePerRouteMin) : '—'} />
             </div>
           ) : (
-            <p className="text-muted-foreground text-sm">Sin datos para esta fecha.</p>
+            <p className="text-muted-foreground text-sm">Sin datos para el rango seleccionado.</p>
           )}
         </TabsContent>
 
@@ -154,6 +349,7 @@ export default function Reports() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Fecha</TableHead>
                       <TableHead>Ruta</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Conductor</TableHead>
@@ -167,6 +363,7 @@ export default function Reports() {
                       const pct = r.totalStops > 0 ? Math.round((r.doneStops / r.totalStops) * 100) : 0;
                       return (
                         <TableRow key={r.id}>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{r.date}</TableCell>
                           <TableCell className="font-medium">{r.name}</TableCell>
                           <TableCell>
                             <Badge variant={r.status === 'done' ? 'default' : 'secondary'} className="text-xs">
@@ -194,7 +391,7 @@ export default function Reports() {
               </CardContent>
             </Card>
           ) : (
-            <p className="text-muted-foreground text-sm">Sin rutas para esta fecha.</p>
+            <p className="text-muted-foreground text-sm">Sin rutas para el rango seleccionado.</p>
           )}
         </TabsContent>
 
@@ -242,7 +439,7 @@ export default function Reports() {
               </CardContent>
             </Card>
           ) : (
-            <p className="text-muted-foreground text-sm">Sin datos de conductores para esta fecha.</p>
+            <p className="text-muted-foreground text-sm">Sin datos de conductores para el rango seleccionado.</p>
           )}
         </TabsContent>
 
@@ -286,7 +483,7 @@ export default function Reports() {
               </CardContent>
             </Card>
           ) : (
-            <p className="text-muted-foreground text-sm">Sin datos de vehículos para esta fecha.</p>
+            <p className="text-muted-foreground text-sm">Sin datos de vehículos para el rango seleccionado.</p>
           )}
         </TabsContent>
       </Tabs>

@@ -3,6 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useUserCompany } from './useCompany';
 
+export interface ReportFilters {
+  dateFrom: string; // yyyy-MM-dd
+  dateTo: string;   // yyyy-MM-dd
+  driverId?: string; // 'all' or uuid
+  vehicleId?: string; // 'all' or uuid
+}
+
 export interface DailySummary {
   activeDrivers: number;
   completedRoutes: number;
@@ -52,41 +59,58 @@ export interface VehicleReport {
   doneStops: number;
 }
 
-export function useDailySummary(date: string) {
+function applyFilters(
+  query: any,
+  companyId: string,
+  filters: ReportFilters
+) {
+  let q = query
+    .eq('company_id', companyId)
+    .gte('date', filters.dateFrom)
+    .lte('date', filters.dateTo);
+
+  if (filters.driverId && filters.driverId !== 'all') {
+    q = q.eq('driver_id', filters.driverId);
+  }
+  if (filters.vehicleId && filters.vehicleId !== 'all') {
+    q = q.eq('vehicle_id', filters.vehicleId);
+  }
+  return q;
+}
+
+export function useDailySummary(filters: ReportFilters) {
   const { user } = useAuth();
   const { data: company } = useUserCompany();
 
   return useQuery({
-    queryKey: ['report-daily', date, company?.id],
+    queryKey: ['report-daily', filters, company?.id],
     queryFn: async () => {
       if (!company?.id) throw new Error('No company');
 
-      // Fetch routes for the date
-      const { data: routes, error: rErr } = await supabase
+      const baseQuery = supabase
         .from('routes')
         .select(`
           id, status, created_at, completed_at, driver_id,
           route_stops(id, status)
-        `)
-        .eq('company_id', company.id)
-        .eq('date', date);
+        `);
 
-      if (rErr) throw rErr;
+      const { data: routes, error } = await applyFilters(baseQuery, company.id, filters);
+      if (error) throw error;
 
-      const uniqueDrivers = new Set(routes?.filter(r => r.driver_id).map(r => r.driver_id));
-      const completedRoutes = routes?.filter(r => r.status === 'done') || [];
+      const uniqueDrivers = new Set(routes?.filter((r: any) => r.driver_id).map((r: any) => r.driver_id));
+      const completedRoutes = routes?.filter((r: any) => r.status === 'done') || [];
 
       let totalDone = 0, totalSkipped = 0, totalFailed = 0;
       const durations: number[] = [];
 
       for (const route of routes || []) {
-        const stops = route.route_stops || [];
+        const stops = (route as any).route_stops || [];
         totalDone += stops.filter((s: any) => s.status === 'done').length;
         totalSkipped += stops.filter((s: any) => s.status === 'skipped').length;
         totalFailed += stops.filter((s: any) => s.status === 'failed').length;
 
-        if (route.completed_at && route.created_at) {
-          const dur = (new Date(route.completed_at).getTime() - new Date(route.created_at).getTime()) / 60000;
+        if ((route as any).completed_at && (route as any).created_at) {
+          const dur = (new Date((route as any).completed_at).getTime() - new Date((route as any).created_at).getTime()) / 60000;
           if (dur > 0 && dur < 1440) durations.push(dur);
         }
       }
@@ -108,16 +132,16 @@ export function useDailySummary(date: string) {
   });
 }
 
-export function useRouteReports(date: string) {
+export function useRouteReports(filters: ReportFilters) {
   const { user } = useAuth();
   const { data: company } = useUserCompany();
 
   return useQuery({
-    queryKey: ['report-routes', date, company?.id],
+    queryKey: ['report-routes', filters, company?.id],
     queryFn: async () => {
       if (!company?.id) throw new Error('No company');
 
-      const { data, error } = await supabase
+      const baseQuery = supabase
         .from('routes')
         .select(`
           id, name, date, status, created_at, completed_at, driver_id, vehicle_id,
@@ -125,10 +149,9 @@ export function useRouteReports(date: string) {
           vehicle:vehicles(plate, label),
           route_stops(id, status)
         `)
-        .eq('company_id', company.id)
-        .eq('date', date)
-        .order('created_at', { ascending: false });
+        .order('date', { ascending: false });
 
+      const { data, error } = await applyFilters(baseQuery, company.id, filters);
       if (error) throw error;
 
       return (data || []).map((r: any): RouteReport => {
@@ -160,35 +183,35 @@ export function useRouteReports(date: string) {
   });
 }
 
-export function useDriverReports(date: string) {
+export function useDriverReports(filters: ReportFilters) {
   const { user } = useAuth();
   const { data: company } = useUserCompany();
 
   return useQuery({
-    queryKey: ['report-drivers', date, company?.id],
+    queryKey: ['report-drivers', filters, company?.id],
     queryFn: async () => {
       if (!company?.id) throw new Error('No company');
 
-      const { data, error } = await supabase
+      const baseQuery = supabase
         .from('routes')
         .select(`
           id, status, created_at, completed_at, driver_id,
           driver:profiles!routes_driver_id_fkey(id, full_name),
           route_stops(id, status)
         `)
-        .eq('company_id', company.id)
-        .eq('date', date)
         .not('driver_id', 'is', null);
 
+      const { data, error } = await applyFilters(baseQuery, company.id, filters);
       if (error) throw error;
 
       const driverMap = new Map<string, DriverReport>();
+      const durationSums = new Map<string, { total: number; count: number }>();
 
       for (const r of data || []) {
-        const dId = r.driver_id!;
+        const dId = (r as any).driver_id!;
         const existing = driverMap.get(dId) || {
           driverId: dId,
-          driverName: (r.driver as any)?.full_name || null,
+          driverName: (r as any).driver?.full_name || null,
           totalRoutes: 0,
           completedRoutes: 0,
           totalStops: 0,
@@ -199,25 +222,29 @@ export function useDriverReports(date: string) {
         };
 
         existing.totalRoutes++;
-        if (r.status === 'done') existing.completedRoutes++;
+        if ((r as any).status === 'done') existing.completedRoutes++;
 
-        const stops = r.route_stops || [];
+        const stops = (r as any).route_stops || [];
         existing.totalStops += stops.length;
         existing.doneStops += stops.filter((s: any) => s.status === 'done').length;
         existing.skippedStops += stops.filter((s: any) => s.status === 'skipped').length;
         existing.failedStops += stops.filter((s: any) => s.status === 'failed').length;
 
         driverMap.set(dId, existing);
+
+        if ((r as any).completed_at && (r as any).created_at) {
+          const dur = (new Date((r as any).completed_at).getTime() - new Date((r as any).created_at).getTime()) / 60000;
+          if (dur > 0 && dur < 1440) {
+            const prev = durationSums.get(dId) || { total: 0, count: 0 };
+            durationSums.set(dId, { total: prev.total + dur, count: prev.count + 1 });
+          }
+        }
       }
 
-      // Calc avg duration
-      for (const r of data || []) {
-        if (r.completed_at && r.created_at && r.driver_id) {
-          const dur = (new Date(r.completed_at).getTime() - new Date(r.created_at).getTime()) / 60000;
-          const d = driverMap.get(r.driver_id)!;
-          if (d.completedRoutes > 0) {
-            d.avgDurationMin = Math.round(dur / d.completedRoutes);
-          }
+      for (const [dId, sums] of durationSums) {
+        const d = driverMap.get(dId);
+        if (d && sums.count > 0) {
+          d.avgDurationMin = Math.round(sums.total / sums.count);
         }
       }
 
@@ -227,32 +254,31 @@ export function useDriverReports(date: string) {
   });
 }
 
-export function useVehicleReports(date: string) {
+export function useVehicleReports(filters: ReportFilters) {
   const { user } = useAuth();
   const { data: company } = useUserCompany();
 
   return useQuery({
-    queryKey: ['report-vehicles', date, company?.id],
+    queryKey: ['report-vehicles', filters, company?.id],
     queryFn: async () => {
       if (!company?.id) throw new Error('No company');
 
-      const { data, error } = await supabase
+      const baseQuery = supabase
         .from('routes')
         .select(`
           id, status, vehicle_id,
           vehicle:vehicles(id, plate, label),
           route_stops(id, status)
         `)
-        .eq('company_id', company.id)
-        .eq('date', date)
         .not('vehicle_id', 'is', null);
 
+      const { data, error } = await applyFilters(baseQuery, company.id, filters);
       if (error) throw error;
 
       const vehicleMap = new Map<string, VehicleReport>();
 
       for (const r of data || []) {
-        const v = r.vehicle as any;
+        const v = (r as any).vehicle;
         if (!v) continue;
         const vId = v.id;
 
@@ -267,9 +293,9 @@ export function useVehicleReports(date: string) {
         };
 
         existing.totalRoutes++;
-        if (r.status === 'done') existing.completedRoutes++;
+        if ((r as any).status === 'done') existing.completedRoutes++;
 
-        const stops = r.route_stops || [];
+        const stops = (r as any).route_stops || [];
         existing.totalStops += stops.length;
         existing.doneStops += stops.filter((s: any) => s.status === 'done').length;
 
