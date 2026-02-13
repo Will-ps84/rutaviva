@@ -8,6 +8,10 @@ export interface GeocodingResult {
   confidence: 'high' | 'medium' | 'low';
 }
 
+export function isValidPeruCoords(lat: number, lng: number): boolean {
+  return lat >= -18.5 && lat <= -0.5 && lng >= -81.5 && lng <= -68;
+}
+
 export async function geocodeAddress(address: string): Promise<GeocodingResult | null> {
   try {
     const token = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1Ijoid2lsbHBzODQiLCJhIjoiY21sYjUxZXZ3MG4zcjNycTBvMWZ5ZGh3OSJ9.JvfwdqhWlRi2D_1D8xSzww';
@@ -30,9 +34,13 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
       searchAddress = `${searchAddress}, Peru`;
     }
     
+    // Lima center for proximity bias
+    const limaCenter = { lat: -12.0464, lng: -77.0428 };
+    
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchAddress)}.json?` +
       `access_token=${token}&` +
       `country=PE&` +
+      `proximity=${limaCenter.lng},${limaCenter.lat}&` +
       `limit=1&` +
       `language=es`;
     
