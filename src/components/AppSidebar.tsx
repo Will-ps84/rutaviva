@@ -8,11 +8,13 @@ import {
   BarChart3,
   ChevronUp,
   User,
-  ChevronsLeft,
+  Building2,
+  Shield,
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserCompany } from '@/hooks/useCompany';
+import { useCurrentUserRole } from '@/hooks/useUserRole';
 import { cn } from '@/lib/utils';
 import {
   Sidebar,
@@ -40,35 +42,56 @@ const menuItems = [
     title: 'Despacho',
     url: '/app',
     icon: LayoutDashboard,
+    roles: ['admin', 'dispatcher', 'owner', 'super_admin'],
   },
   {
     title: 'Rutas',
     url: '/app/routes',
     icon: Route,
+    roles: ['admin', 'dispatcher', 'owner', 'super_admin'],
   },
   {
     title: 'Conductores',
     url: '/app/drivers',
     icon: Users,
+    roles: ['admin', 'dispatcher', 'owner', 'super_admin'],
   },
   {
     title: 'Reportes',
     url: '/app/reports',
     icon: BarChart3,
+    roles: ['admin', 'dispatcher', 'owner', 'super_admin'],
+  },
+  {
+    title: 'Mi Empresa',
+    url: '/app/company',
+    icon: Building2,
+    roles: ['admin', 'owner', 'super_admin'],
+  },
+  {
+    title: 'Super Admin',
+    url: '/app/admin',
+    icon: Shield,
+    roles: ['super_admin'],
   },
   {
     title: 'Configuración',
     url: '/app/settings',
     icon: Settings,
+    roles: ['admin', 'owner', 'super_admin'],
   },
 ];
 
 export function AppSidebar() {
   const { signOut, user } = useAuth();
   const { data: company } = useUserCompany();
+  const { data: currentRole } = useCurrentUserRole();
   const location = useLocation();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+
+  const userRole = currentRole?.role || 'viewer';
+  const visibleItems = menuItems.filter(item => item.roles.includes(userRole));
 
   const initials = user?.email
     ? user.email.substring(0, 2).toUpperCase()
@@ -104,7 +127,7 @@ export function AppSidebar() {
       {/* Navigation */}
       <SidebarContent className="px-3 py-1">
         <SidebarMenu className="space-y-0.5">
-          {menuItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = location.pathname === item.url || 
               (item.url !== '/app' && location.pathname.startsWith(item.url));
             

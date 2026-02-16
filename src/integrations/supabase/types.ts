@@ -14,21 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          company_id: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_table: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          company_id?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          company_id?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_table?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           created_at: string
           id: string
+          max_admins: number
+          max_drivers: number
           name: string
+          plan_name: string
+          status: string
         }
         Insert: {
           created_at?: string
           id?: string
+          max_admins?: number
+          max_drivers?: number
           name: string
+          plan_name?: string
+          status?: string
         }
         Update: {
           created_at?: string
           id?: string
+          max_admins?: number
+          max_drivers?: number
           name?: string
+          plan_name?: string
+          status?: string
         }
         Relationships: []
       }
@@ -275,6 +328,7 @@ export type Database = {
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
+          status: string
           user_id: string
         }
         Insert: {
@@ -282,6 +336,7 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          status?: string
           user_id: string
         }
         Update: {
@@ -289,6 +344,7 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -659,6 +715,16 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      is_super_admin: { Args: never; Returns: boolean }
+      log_audit: {
+        Args: {
+          p_action: string
+          p_details?: Json
+          p_target_id?: string
+          p_target_table?: string
+        }
+        Returns: undefined
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
       populate_geometry_columns:
@@ -1300,7 +1366,13 @@ export type Database = {
       user_can_access_route: { Args: { _route_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "dispatcher" | "driver" | "viewer" | "owner"
+      app_role:
+        | "admin"
+        | "dispatcher"
+        | "driver"
+        | "viewer"
+        | "owner"
+        | "super_admin"
       route_status: "draft" | "published" | "in_progress" | "done"
       stop_status: "pending" | "arrived" | "done" | "skipped" | "failed"
     }
@@ -1438,7 +1510,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "dispatcher", "driver", "viewer", "owner"],
+      app_role: [
+        "admin",
+        "dispatcher",
+        "driver",
+        "viewer",
+        "owner",
+        "super_admin",
+      ],
       route_status: ["draft", "published", "in_progress", "done"],
       stop_status: ["pending", "arrived", "done", "skipped", "failed"],
     },
