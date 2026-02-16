@@ -15,6 +15,8 @@ import RouteDetail from "./pages/app/RouteDetail";
 import Drivers from "./pages/app/Drivers";
 import Settings from "./pages/app/Settings";
 import Reports from "./pages/app/Reports";
+import CompanyPage from "./pages/app/Company";
+import AdminPanel from "./pages/app/AdminPanel";
 import Driver from "./pages/Driver";
 import Track from "./pages/Track";
 import NotFound from "./pages/NotFound";
@@ -50,6 +52,8 @@ const App = () => (
               <Route path="routes/:id" element={<RouteDetail />} />
               <Route path="drivers" element={<Drivers />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="company" element={<CompanyPage />} />
+              <Route path="admin" element={<AdminPanel />} />
               <Route path="settings" element={<Settings />} />
             </Route>
 
