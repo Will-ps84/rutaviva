@@ -36,6 +36,7 @@ import {
   SkipForward,
   Clock,
   Filter,
+  MapPin,
 } from 'lucide-react';
 import {
   useDailySummary,
@@ -46,6 +47,8 @@ import {
 } from '@/hooks/useReportsData';
 import { useDrivers, useVehicles } from '@/hooks/useDrivers';
 import { exportToExcel } from '@/lib/exportExcel';
+import { exportToCsv } from '@/lib/exportCsv';
+import { useTrackingData } from '@/hooks/useTrackingExport';
 
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
@@ -60,6 +63,7 @@ export default function Reports() {
   const [dateTo, setDateTo] = useState<Date>(today);
   const [driverId, setDriverId] = useState('all');
   const [vehicleId, setVehicleId] = useState('all');
+  const [trackingEnabled, setTrackingEnabled] = useState(false);
 
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
@@ -75,6 +79,10 @@ export default function Reports() {
   const { data: routeReports, isLoading: loadingRoutes } = useRouteReports(filters);
   const { data: driverReports, isLoading: loadingDrivers } = useDriverReports(filters);
   const { data: vehicleReports, isLoading: loadingVehicles } = useVehicleReports(filters);
+  const { data: trackingData, isLoading: loadingTracking } = useTrackingData(
+    { dateFrom: filters.dateFrom, dateTo: filters.dateTo, driverId: filters.driverId },
+    trackingEnabled
+  );
 
   const setQuickRange = (range: string) => {
     const now = new Date();
@@ -168,6 +176,34 @@ export default function Reports() {
       `vehiculos_${filters.dateFrom}_${filters.dateTo}`
     );
   };
+
+  const handleExportRoutesCsv = () => {
+    if (!routeReports) return;
+    exportToCsv(
+      routeReports.map(r => ({
+        Fecha: r.date, Ruta: r.name, Estado: statusLabels[r.status] || r.status,
+        Conductor: r.driverName || '', Vehículo: r.vehiclePlate || '',
+        Paradas_totales: r.totalStops, Completadas: r.doneStops,
+        Omitidas: r.skippedStops, Fallidas: r.failedStops,
+        Duración_min: r.durationMin ?? '',
+      })),
+      `rutas_${filters.dateFrom}_${filters.dateTo}`
+    );
+  };
+
+  const handleExportTrackingCsv = () => {
+    if (!trackingData?.length) return;
+    exportToCsv(
+      trackingData.map(p => ({
+        recorded_at: p.recorded_at, driver_id: p.driver_id,
+        lat: p.lat, lng: p.lng, speed_mps: p.speed_mps ?? '',
+        heading: p.heading ?? '', accuracy_m: p.accuracy_m ?? '',
+        route_id: p.route_id ?? '', company_id: p.company_id,
+      })),
+      `tracking_${filters.dateFrom}_${filters.dateTo}`
+    );
+  };
+
 
   const fmtDuration = (min: number) => {
     if (min < 60) return `${min} min`;
@@ -314,6 +350,9 @@ export default function Reports() {
           <TabsTrigger value="vehicles" className="gap-1.5">
             <Truck className="h-4 w-4" /> Por Vehículo
           </TabsTrigger>
+          <TabsTrigger value="tracking" className="gap-1.5" onClick={() => setTrackingEnabled(true)}>
+            <MapPin className="h-4 w-4" /> Tracking
+          </TabsTrigger>
         </TabsList>
 
         {/* ── DAILY SUMMARY ── */}
@@ -336,9 +375,12 @@ export default function Reports() {
 
         {/* ── ROUTES ── */}
         <TabsContent value="routes" className="space-y-3">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportRoutesCsv} disabled={!routeReports?.length}>
+              <Download className="h-4 w-4 mr-1.5" /> CSV
+            </Button>
             <Button variant="outline" size="sm" onClick={handleExportRoutes} disabled={!routeReports?.length}>
-              <Download className="h-4 w-4 mr-1.5" /> Exportar Excel
+              <Download className="h-4 w-4 mr-1.5" /> Excel
             </Button>
           </div>
           {loadingRoutes ? (
@@ -484,6 +526,59 @@ export default function Reports() {
             </Card>
           ) : (
             <p className="text-muted-foreground text-sm">Sin datos de vehículos para el rango seleccionado.</p>
+          )}
+        </TabsContent>
+
+        {/* ── TRACKING ── */}
+        <TabsContent value="tracking" className="space-y-3">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={handleExportTrackingCsv} disabled={!trackingData?.length}>
+              <Download className="h-4 w-4 mr-1.5" /> Exportar CSV
+            </Button>
+          </div>
+          {loadingTracking ? (
+            <p className="text-muted-foreground text-sm">Cargando puntos de tracking...</p>
+          ) : trackingData?.length ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">
+                  {trackingData.length} puntos de ubicación
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha/Hora</TableHead>
+                      <TableHead>Lat</TableHead>
+                      <TableHead>Lng</TableHead>
+                      <TableHead>Vel. (m/s)</TableHead>
+                      <TableHead>Precisión</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {trackingData.slice(0, 100).map((p, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {format(new Date(p.recorded_at), 'dd/MM HH:mm:ss')}
+                        </TableCell>
+                        <TableCell className="text-xs">{Number(p.lat).toFixed(5)}</TableCell>
+                        <TableCell className="text-xs">{Number(p.lng).toFixed(5)}</TableCell>
+                        <TableCell className="text-xs">{p.speed_mps != null ? Number(p.speed_mps).toFixed(1) : '—'}</TableCell>
+                        <TableCell className="text-xs">{p.accuracy_m != null ? `${Number(p.accuracy_m).toFixed(0)}m` : '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {trackingData.length > 100 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    Mostrando 100 de {trackingData.length} puntos. Exporta CSV para ver todos.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <p className="text-muted-foreground text-sm">Sin datos de tracking para el rango seleccionado.</p>
           )}
         </TabsContent>
       </Tabs>

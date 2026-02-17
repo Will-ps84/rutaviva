@@ -322,6 +322,64 @@ export type Database = {
         }
         Relationships: []
       }
+      stop_events: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string
+          event_type: string
+          evidence_path: string | null
+          id: string
+          note: string | null
+          route_id: string
+          stop_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by: string
+          event_type: string
+          evidence_path?: string | null
+          id?: string
+          note?: string | null
+          route_id: string
+          stop_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          event_type?: string
+          evidence_path?: string | null
+          id?: string
+          note?: string | null
+          route_id?: string
+          stop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stop_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stop_events_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stop_events_stop_id_fkey"
+            columns: ["stop_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
