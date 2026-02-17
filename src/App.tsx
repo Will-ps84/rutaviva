@@ -54,6 +54,7 @@ const App = () => (
               <Route path="reports" element={<Reports />} />
               <Route path="company" element={<CompanyPage />} />
               <Route path="admin" element={<AdminPanel />} />
+              <Route path="dashboard" element={<Navigate to="/app" replace />} />
               <Route path="settings" element={<Settings />} />
             </Route>
 

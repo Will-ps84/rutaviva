@@ -74,7 +74,16 @@ export function useUpdateMemberStatus() {
       toast({ title: 'Estado actualizado', description: 'El miembro fue actualizado correctamente.' });
     },
     onError: (error) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      const msg = error.message || '';
+      if (msg.includes('Límite') || msg.includes('cupo') || msg.includes('quota')) {
+        toast({
+          title: 'Cupo alcanzado',
+          description: 'Has alcanzado el límite de tu plan. Desactiva un usuario o aumenta el plan.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+      }
     },
   });
 }
@@ -96,7 +105,16 @@ export function useUpdateMemberRole() {
       toast({ title: 'Rol actualizado', description: 'El rol fue cambiado correctamente.' });
     },
     onError: (error) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      const msg = error.message || '';
+      if (msg.includes('Límite') || msg.includes('cupo') || msg.includes('quota')) {
+        toast({
+          title: 'Cupo alcanzado',
+          description: 'Has alcanzado el límite de tu plan para este rol. Desactiva un usuario o aumenta el plan.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Error', description: msg, variant: 'destructive' });
+      }
     },
   });
 }

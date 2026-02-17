@@ -76,7 +76,7 @@ export default function CompanyPage() {
             <CardTitle className="text-sm font-medium">Plan</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold capitalize">{(company as any)?.plan_name || 'free'}</div>
+            <div className="text-2xl font-bold capitalize">{company?.plan_name || 'free'}</div>
           </CardContent>
         </Card>
         <Card>
@@ -87,7 +87,7 @@ export default function CompanyPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeAdmins} / {(company as any)?.max_admins || 2}</div>
+            <div className="text-2xl font-bold">{activeAdmins} / {company?.max_admins ?? 2}</div>
           </CardContent>
         </Card>
         <Card>
@@ -98,7 +98,7 @@ export default function CompanyPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeDrivers} / {(company as any)?.max_drivers || 5}</div>
+            <div className="text-2xl font-bold">{activeDrivers} / {company?.max_drivers ?? 5}</div>
           </CardContent>
         </Card>
       </div>

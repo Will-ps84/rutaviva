@@ -6,6 +6,10 @@ import { toast } from '@/hooks/use-toast';
 export interface Company {
   id: string;
   name: string;
+  plan_name: string;
+  max_admins: number;
+  max_drivers: number;
+  status: string;
   created_at: string;
 }
 
