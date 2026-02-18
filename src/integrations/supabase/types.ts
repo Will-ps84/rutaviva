@@ -378,6 +378,13 @@ export type Database = {
             referencedRelation: "route_stops"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "stop_events_stop_route_fk"
+            columns: ["stop_id", "route_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
+            referencedColumns: ["id", "route_id"]
+          },
         ]
       }
       user_roles: {
