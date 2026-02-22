@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,7 @@ interface ActiveRoutesListProps {
   onRouteSelect: (routeId: string | null) => void;
 }
 
-export function ActiveRoutesList({
+export const ActiveRoutesList = memo(function ActiveRoutesList({
   routes,
   selectedRouteId,
   onRouteSelect,
@@ -145,4 +146,4 @@ export function ActiveRoutesList({
       </CardContent>
     </Card>
   );
-}
+});

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Truck, Route, TrendingUp, Signal } from 'lucide-react';
 
@@ -8,7 +9,7 @@ interface DispatchKPIsProps {
   noSignal: number;
 }
 
-export function DispatchKPIs({
+export const DispatchKPIs = memo(function DispatchKPIs({
   activeDrivers,
   routesInProgress,
   avgProgress,
@@ -77,4 +78,4 @@ export function DispatchKPIs({
       </Card>
     </div>
   );
-}
+});
