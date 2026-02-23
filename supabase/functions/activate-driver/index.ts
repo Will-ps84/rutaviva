@@ -39,7 +39,7 @@ serve(async (req: Request) => {
     // Find activation code
     const { data: activation, error: activationError } = await supabaseAdmin
       .from("driver_activation_codes")
-      .select("*, profiles:driver_profile_id(id, phone)")
+      .select("*")
       .eq("code", cleanCode)
       .is("used_at", null)
       .gt("expires_at", new Date().toISOString())

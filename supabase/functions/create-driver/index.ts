@@ -7,6 +7,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function phoneToEmail(phone: string): string {
+  return phone.replace(/[^0-9]/g, "") + "@driver.rutaviva.local";
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -89,6 +93,7 @@ serve(async (req: Request) => {
     const cleanPhone = phone.trim();
     const cleanName = full_name.trim();
     const company_id = callerProfile.company_id;
+    const fakeEmail = phoneToEmail(cleanPhone);
 
     // Check if a profile with this phone already exists in this company
     const { data: existingProfile } = await supabaseAdmin
@@ -104,7 +109,7 @@ serve(async (req: Request) => {
       // Driver already exists in this company — just regenerate activation code
       driverUserId = existingProfile.id;
     } else {
-      // Check if phone exists in auth.users by trying to find profile with that phone (any company)
+      // Check if phone exists in another company
       const { data: anyProfile } = await supabaseAdmin
         .from("profiles")
         .select("id, company_id")
@@ -118,25 +123,25 @@ serve(async (req: Request) => {
         });
       }
 
-      // Try to create new auth user
+      // Create auth user with EMAIL derived from phone (phone logins are disabled)
       const tempPassword = crypto.randomUUID().slice(0, 16) + "Aa1!";
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        phone: cleanPhone,
+        email: fakeEmail,
         password: tempPassword,
+        email_confirm: true,
+        phone: cleanPhone,
         phone_confirm: true,
         user_metadata: { full_name: cleanName },
       });
 
       if (authError) {
-        // If phone already exists in auth but not in profiles, find and reuse
         if (authError.message?.toLowerCase().includes("already") || authError.message?.toLowerCase().includes("duplicate")) {
-          // Look up existing auth user by listing with phone filter
           const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-          const existingAuthUser = listData?.users?.find(u => u.phone === cleanPhone);
+          const existingAuthUser = listData?.users?.find(u => u.email === fakeEmail);
           if (existingAuthUser) {
             driverUserId = existingAuthUser.id;
           } else {
-            return new Response(JSON.stringify({ error: "Phone number conflict. Please try a different number." }), {
+            return new Response(JSON.stringify({ error: "Phone number already registered by another user" }), {
               status: 400,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
@@ -172,7 +177,7 @@ serve(async (req: Request) => {
         }, { onConflict: "user_id,role" });
     }
 
-    // Generate activation code (6 chars, uppercase alphanumeric)
+    // Generate activation code
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let code = "";
     for (let i = 0; i < 6; i++) {

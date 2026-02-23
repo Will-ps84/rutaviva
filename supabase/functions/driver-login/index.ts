@@ -7,6 +7,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function phoneToEmail(phone: string): string {
+  return phone.replace(/[^0-9]/g, "") + "@driver.rutaviva.local";
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -28,9 +32,11 @@ serve(async (req: Request) => {
       });
     }
 
-    // Sign in with phone + password
+    const fakeEmail = phoneToEmail(phone.trim());
+
+    // Sign in with derived email + password
     const { data: signInData, error: signInError } = await supabaseAnon.auth.signInWithPassword({
-      phone: phone.trim(),
+      email: fakeEmail,
       password,
     });
 
