@@ -6,8 +6,10 @@ import {
   Loader2, 
   Trash2,
   Phone,
-  Mail,
   Upload,
+  Copy,
+  RefreshCw,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,20 +47,24 @@ import { ImportDriversDialog } from '@/components/drivers/ImportDriversDialog';
 import { ImportVehiclesDialog } from '@/components/drivers/ImportVehiclesDialog';
 import { useDrivers, useVehicles, useCreateVehicle, useDeleteVehicle } from '@/hooks/useDrivers';
 import { useUserCompany } from '@/hooks/useCompany';
+import { useAuth } from '@/hooks/useAuth';
+import { createDriverApi } from '@/services/driverAuth';
 import { toast } from '@/hooks/use-toast';
 
 export default function DriversPage() {
   const { data: company, isLoading: companyLoading } = useUserCompany();
+  const { session } = useAuth();
   const { data: drivers, isLoading: driversLoading, error: driversError, refetch: refetchDrivers } = useDrivers();
   const { data: vehicles, isLoading: vehiclesLoading, error: vehiclesError, refetch: refetchVehicles } = useVehicles();
   const createVehicle = useCreateVehicle();
   const deleteVehicle = useDeleteVehicle();
   
-  // Driver invite dialog
+  // Driver create dialog
   const [showDriverDialog, setShowDriverDialog] = useState(false);
-  const [driverEmail, setDriverEmail] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
+  const [creatingDriver, setCreatingDriver] = useState(false);
+  const [createdCode, setCreatedCode] = useState<{ code: string; expires_at: string } | null>(null);
   
   // Vehicle dialog
   const [showVehicleDialog, setShowVehicleDialog] = useState(false);
@@ -73,13 +79,25 @@ export default function DriversPage() {
   const [showImportVehicles, setShowImportVehicles] = useState(false);
   
   const handleInviteDriver = async () => {
-    // For MVP: Show info about manual driver creation
-    toast({
-      title: 'Función en desarrollo',
-      description: 'Por ahora, los conductores deben registrarse manualmente y luego asignarles el rol de driver desde la base de datos.',
-    });
-    setShowDriverDialog(false);
-    resetDriverForm();
+    if (!driverName.trim() || !driverPhone.trim()) {
+      toast({ title: 'Error', description: 'Nombre y teléfono son requeridos', variant: 'destructive' });
+      return;
+    }
+    if (!session?.access_token) {
+      toast({ title: 'Error', description: 'No autenticado', variant: 'destructive' });
+      return;
+    }
+    setCreatingDriver(true);
+    try {
+      const result = await createDriverApi(session.access_token, driverName.trim(), driverPhone.trim());
+      setCreatedCode({ code: result.code, expires_at: result.expires_at });
+      refetchDrivers();
+      toast({ title: 'Conductor creado', description: `Código de activación: ${result.code}` });
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Error al crear conductor', variant: 'destructive' });
+    } finally {
+      setCreatingDriver(false);
+    }
   };
   
   const handleCreateVehicle = async () => {
@@ -119,9 +137,9 @@ export default function DriversPage() {
   };
   
   const resetDriverForm = () => {
-    setDriverEmail('');
     setDriverName('');
     setDriverPhone('');
+    setCreatedCode(null);
   };
   
   const resetVehicleForm = () => {
@@ -224,6 +242,7 @@ export default function DriversPage() {
                       <TableHead>Nombre</TableHead>
                       <TableHead>Teléfono</TableHead>
                       <TableHead>Registrado</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -244,6 +263,27 @@ export default function DriversPage() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {new Date(driver.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {driver.phone && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                if (!session?.access_token || !driver.phone) return;
+                                try {
+                                  const result = await createDriverApi(session.access_token, driver.full_name || 'Conductor', driver.phone);
+                                  toast({ title: 'Código regenerado', description: `Nuevo código: ${result.code}` });
+                                  navigator.clipboard.writeText(result.code);
+                                } catch (err) {
+                                  toast({ title: 'Error', description: err instanceof Error ? err.message : 'Error', variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <RefreshCw className="mr-1 h-3 w-3" />
+                              Regenerar código
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -343,53 +383,85 @@ export default function DriversPage() {
       </Tabs>
       
       {/* Add Driver Dialog */}
-      <Dialog open={showDriverDialog} onOpenChange={setShowDriverDialog}>
+      <Dialog open={showDriverDialog} onOpenChange={(open) => {
+        setShowDriverDialog(open);
+        if (!open) resetDriverForm();
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Agregar Conductor</DialogTitle>
             <DialogDescription>
-              Invita a un nuevo conductor a tu empresa
+              Crea un conductor por teléfono y obtén su código de activación
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="driver-email">Email</Label>
-              <Input
-                id="driver-email"
-                type="email"
-                placeholder="conductor@email.com"
-                value={driverEmail}
-                onChange={(e) => setDriverEmail(e.target.value)}
-              />
+
+          {createdCode ? (
+            <div className="py-6 space-y-4 text-center">
+              <CheckCircle2 className="h-12 w-12 text-[hsl(var(--status-active))] mx-auto" />
+              <p className="font-semibold">Conductor creado exitosamente</p>
+              <div className="bg-muted rounded-lg p-4 space-y-2">
+                <p className="text-sm text-muted-foreground">Código de activación</p>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="font-mono text-2xl font-bold tracking-widest">{createdCode.code}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdCode.code);
+                      toast({ title: 'Código copiado' });
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Expira: {new Date(createdCode.expires_at).toLocaleString()}
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Comparte este código con el conductor para que active su cuenta.
+              </p>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="driver-name">Nombre completo</Label>
-              <Input
-                id="driver-name"
-                placeholder="Juan Pérez"
-                value={driverName}
-                onChange={(e) => setDriverName(e.target.value)}
-              />
+          ) : (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="driver-name">Nombre completo</Label>
+                <Input
+                  id="driver-name"
+                  placeholder="Juan Pérez"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="driver-phone">Teléfono</Label>
+                <Input
+                  id="driver-phone"
+                  type="tel"
+                  placeholder="+51999999999"
+                  value={driverPhone}
+                  onChange={(e) => setDriverPhone(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="driver-phone">Teléfono</Label>
-              <Input
-                id="driver-phone"
-                type="tel"
-                placeholder="+51 999 999 999"
-                value={driverPhone}
-                onChange={(e) => setDriverPhone(e.target.value)}
-              />
-            </div>
-          </div>
+          )}
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDriverDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleInviteDriver}>
-              <Mail className="mr-2 h-4 w-4" />
-              Enviar Invitación
-            </Button>
+            {createdCode ? (
+              <Button onClick={() => { setShowDriverDialog(false); resetDriverForm(); }}>
+                Cerrar
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setShowDriverDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleInviteDriver} disabled={creatingDriver}>
+                  {creatingDriver ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                  Crear Conductor
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

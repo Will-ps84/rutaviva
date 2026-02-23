@@ -5,12 +5,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/AdminRoute";
+import { DriverRoute } from "@/components/DriverRoute";
 import { AppLayout } from "@/components/AppLayout";
 import NotFound from "./pages/NotFound";
 
 // Lazy-loaded pages
-const Login = lazy(() => import('./pages/Login'));
+const ChooseMode = lazy(() => import('./pages/ChooseMode'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const DriverLogin = lazy(() => import('./pages/DriverLogin'));
+const DriverActivate = lazy(() => import('./pages/DriverActivate'));
 const Dispatch = lazy(() => import('./pages/app/Dispatch'));
 const RoutesPage = lazy(() => import('./pages/app/Routes'));
 const RouteDetail = lazy(() => import('./pages/app/RouteDetail'));
@@ -42,16 +46,23 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/login" element={<S><Login /></S>} />
+            {/* Public routes */}
+            <Route path="/choose-mode" element={<S><ChooseMode /></S>} />
+            <Route path="/admin/login" element={<S><AdminLogin /></S>} />
+            <Route path="/driver/login" element={<S><DriverLogin /></S>} />
+            <Route path="/driver/activate" element={<S><DriverActivate /></S>} />
             <Route path="/track/:token" element={<S><Track /></S>} />
-            <Route path="/driver" element={<S><Driver /></S>} />
 
+            {/* Legacy login redirect */}
+            <Route path="/login" element={<Navigate to="/choose-mode" replace />} />
+
+            {/* Admin/SaaS routes */}
             <Route
               path="/app"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AppLayout />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             >
               <Route index element={<S><Dispatch /></S>} />
@@ -65,7 +76,18 @@ const App = () => (
               <Route path="settings" element={<S><Settings /></S>} />
             </Route>
 
-            <Route path="/" element={<Navigate to="/app" replace />} />
+            {/* Driver route */}
+            <Route
+              path="/driver"
+              element={
+                <DriverRoute>
+                  <S><Driver /></S>
+                </DriverRoute>
+              }
+            />
+
+            {/* Root redirect */}
+            <Route path="/" element={<Navigate to="/choose-mode" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -11,7 +11,7 @@ import {
   Building2,
   Shield,
 } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserCompany } from '@/hooks/useCompany';
 import { useCurrentUserRole } from '@/hooks/useUserRole';
@@ -87,6 +87,7 @@ export function AppSidebar() {
   const { data: company } = useUserCompany();
   const { data: currentRole } = useCurrentUserRole();
   const location = useLocation();
+  const navigate = useNavigate();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
@@ -211,7 +212,7 @@ export function AppSidebar() {
               </NavLink>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 text-destructive focus:text-destructive" onClick={signOut}>
+            <DropdownMenuItem className="gap-2 text-destructive focus:text-destructive" onClick={() => { signOut(); navigate('/choose-mode'); }}>
               <LogOut className="h-4 w-4" />
               Cerrar sesión
             </DropdownMenuItem>
