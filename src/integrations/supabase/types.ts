@@ -85,6 +85,51 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_activation_codes: {
+        Row: {
+          code: string
+          company_id: string
+          created_at: string
+          driver_profile_id: string
+          expires_at: string
+          id: string
+          used_at: string | null
+        }
+        Insert: {
+          code: string
+          company_id: string
+          created_at?: string
+          driver_profile_id: string
+          expires_at: string
+          id?: string
+          used_at?: string | null
+        }
+        Update: {
+          code?: string
+          company_id?: string
+          created_at?: string
+          driver_profile_id?: string
+          expires_at?: string
+          id?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_activation_codes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_activation_codes_driver_profile_id_fkey"
+            columns: ["driver_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_points: {
         Row: {
           accuracy_m: number | null
