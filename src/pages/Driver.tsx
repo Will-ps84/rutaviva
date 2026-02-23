@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { driverLogout } from '@/services/driverAuth';
 import { 
   Play, Pause, Square, MapPin, Signal, Clock, Truck, LogOut,
   Navigation, AlertCircle, CheckCircle2, Loader2, RotateCcw
@@ -17,7 +18,8 @@ import { DriverRoutesList } from '@/components/driver/DriverRoutesList';
 type TrackingStatus = 'idle' | 'active' | 'paused';
 
 export default function Driver() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const { data: profile, isLoading: profileLoading } = useDriverProfile();
   const { data: todayRoute, isLoading: routeLoading, refetch: refetchRoute } = useDriverTodayRoute();
   const { updateStatus, reactivateRoute } = useUpdateRouteStatus();
@@ -51,7 +53,7 @@ export default function Driver() {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/driver/login" replace />;
 
   const handleStartRoute = async () => {
     if (!todayRoute || !['published', 'in_progress'].includes(todayRoute.status)) {
@@ -147,7 +149,7 @@ export default function Driver() {
             <p className="text-xs text-muted-foreground">Modo Conductor</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={signOut}>
+        <Button variant="ghost" size="icon" onClick={() => { driverLogout(); navigate('/choose-mode'); }}>
           <LogOut className="h-5 w-5" />
         </Button>
       </div>
