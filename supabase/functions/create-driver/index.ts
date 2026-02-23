@@ -90,32 +90,35 @@ serve(async (req: Request) => {
     const cleanName = full_name.trim();
     const company_id = callerProfile.company_id;
 
-    // Check if user with this phone already exists
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.phone === cleanPhone);
+    // Check if a profile with this phone already exists in this company
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("phone", cleanPhone)
+      .eq("company_id", company_id)
+      .maybeSingle();
 
     let driverUserId: string;
 
-    if (existingUser) {
-      // Check if already a driver in this company
-      const { data: existingRole } = await supabaseAdmin
-        .from("user_roles")
-        .select("id")
-        .eq("user_id", existingUser.id)
-        .eq("company_id", company_id)
-        .eq("role", "driver")
+    if (existingProfile) {
+      // Driver already exists in this company — just regenerate activation code
+      driverUserId = existingProfile.id;
+    } else {
+      // Check if phone exists in auth.users by trying to find profile with that phone (any company)
+      const { data: anyProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id, company_id")
+        .eq("phone", cleanPhone)
         .maybeSingle();
 
-      if (existingRole) {
-        return new Response(JSON.stringify({ error: "Driver already exists in this company" }), {
-          status: 409,
+      if (anyProfile && anyProfile.company_id !== company_id) {
+        return new Response(JSON.stringify({ error: "Phone number already registered by another company" }), {
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      driverUserId = existingUser.id;
-    } else {
-      // Create new auth user with phone (no SMS, phone_confirm = true)
+      // Try to create new auth user
       const tempPassword = crypto.randomUUID().slice(0, 16) + "Aa1!";
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
         phone: cleanPhone,
@@ -125,37 +128,52 @@ serve(async (req: Request) => {
       });
 
       if (authError) {
-        return new Response(JSON.stringify({ error: authError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        // If phone already exists in auth but not in profiles, find and reuse
+        if (authError.message?.toLowerCase().includes("already") || authError.message?.toLowerCase().includes("duplicate")) {
+          // Look up existing auth user by listing with phone filter
+          const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+          const existingAuthUser = listData?.users?.find(u => u.phone === cleanPhone);
+          if (existingAuthUser) {
+            driverUserId = existingAuthUser.id;
+          } else {
+            return new Response(JSON.stringify({ error: "Phone number conflict. Please try a different number." }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          return new Response(JSON.stringify({ error: authError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        driverUserId = authUser.user.id;
       }
 
-      driverUserId = authUser.user.id;
+      // Upsert profile
+      await supabaseAdmin
+        .from("profiles")
+        .upsert({
+          id: driverUserId,
+          full_name: cleanName,
+          phone: cleanPhone,
+          company_id,
+        }, { onConflict: "id" });
+
+      // Insert driver role
+      await supabaseAdmin
+        .from("user_roles")
+        .upsert({
+          user_id: driverUserId,
+          company_id,
+          role: "driver",
+          status: "active",
+        }, { onConflict: "user_id,role" });
     }
 
-    // Upsert profile
-    await supabaseAdmin
-      .from("profiles")
-      .upsert({
-        id: driverUserId,
-        full_name: cleanName,
-        phone: cleanPhone,
-        company_id,
-      }, { onConflict: "id" });
-
-    // Insert driver role
-    await supabaseAdmin
-      .from("user_roles")
-      .upsert({
-        user_id: driverUserId,
-        company_id,
-        role: "driver",
-        status: "active",
-      }, { onConflict: "user_id,role" });
-
     // Generate activation code (6 chars, uppercase alphanumeric)
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let code = "";
     for (let i = 0; i < 6; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
