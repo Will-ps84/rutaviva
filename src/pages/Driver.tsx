@@ -65,7 +65,7 @@ export default function Driver() {
       return;
     }
     if (todayRoute && todayRoute.status === 'published') {
-      try { await updateStatus(todayRoute.id, 'in_progress'); refetchRoute(); } catch (e) { console.error(e); }
+      try { await updateStatus(todayRoute.id, 'in_progress'); refetchRoute(); } catch { /* silent */ }
     }
     startTracking();
     setTrackingStatus('active');
@@ -87,8 +87,7 @@ export default function Driver() {
       startTracking();
       setTrackingStatus('active');
       toast({ title: 'Ruta retomada', description: 'Tu ubicación se está enviando nuevamente.' });
-    } catch (e) {
-      console.error(e);
+    } catch {
       toast({ title: 'Error', description: 'No se pudo retomar la ruta.', variant: 'destructive' });
     } finally {
       setIsReactivating(false);
@@ -111,7 +110,7 @@ export default function Driver() {
     stopTracking();
     setTrackingStatus('idle');
     if (todayRoute && todayRoute.status === 'in_progress') {
-      try { await updateStatus(todayRoute.id, 'done'); refetchRoute(); } catch (e) { console.error(e); }
+      try { await updateStatus(todayRoute.id, 'done'); refetchRoute(); } catch { /* silent */ }
     }
     toast({ title: 'Ruta finalizada', description: `Se enviaron ${sendCount} puntos de ubicación.` });
   };

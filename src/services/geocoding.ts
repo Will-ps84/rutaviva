@@ -45,7 +45,6 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
     const response = await fetch(url);
     
     if (!response.ok) {
-      console.error('Geocoding request failed:', response.status);
       return null;
     }
     
