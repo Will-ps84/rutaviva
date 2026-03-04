@@ -82,7 +82,7 @@ export function useCreateCompany() {
       });
     },
     onError: (error) => {
-      console.error('Error completo:', error);
+      
       toast({
         title: 'Error al crear empresa',
         description: error.message,

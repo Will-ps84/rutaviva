@@ -14,10 +14,8 @@ export function isValidPeruCoords(lat: number, lng: number): boolean {
 
 export async function geocodeAddress(address: string): Promise<GeocodingResult | null> {
   try {
-    const token = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1Ijoid2lsbHBzODQiLCJhIjoiY21sYjUxZXZ3MG4zcjNycTBvMWZ5ZGh3OSJ9.JvfwdqhWlRi2D_1D8xSzww';
-    
+    const token = import.meta.env.VITE_MAPBOX_TOKEN;
     if (!token) {
-      console.error('Mapbox token not configured');
       return null;
     }
     
@@ -59,8 +57,6 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
       const relevance = feature.relevance || 0;
       const confidence: 'high' | 'medium' | 'low' = relevance > 0.8 ? 'high' : relevance > 0.4 ? 'medium' : 'low';
       
-      console.log(`✅ Geocoded: "${address}" → (${lat}, ${lng}) [${confidence}]`);
-      
       return {
         lat,
         lng,
@@ -69,10 +65,8 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
       };
     }
     
-    console.warn(`⚠️ No results for: "${address}"`);
     return null;
-  } catch (error) {
-    console.error('❌ Geocoding error:', error);
+  } catch {
     return null;
   }
 }
