@@ -14,10 +14,10 @@ export function isValidPeruCoords(lat: number, lng: number): boolean {
 
 export async function geocodeAddress(address: string): Promise<GeocodingResult | null> {
   try {
-    const token = import.meta.env.VITE_MAPBOX_TOKEN;
-    if (!token) {
-      return null;
-    }
+  const token = import.meta.env.VITE_MAPBOX_TOKEN;
+  if (!token) {
+    return null;
+  }
     
     let searchAddress = address.trim();
     const lower = searchAddress.toLowerCase();
