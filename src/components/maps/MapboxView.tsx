@@ -55,7 +55,7 @@ export function MapboxView({ stops, center, zoom = 12, className = '' }: MapboxV
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
-    mapboxgl.accessToken = 'pk.eyJ1Ijoid2lsbHBzODQiLCJhIjoiY21sYjUxZXZ3MG4zcjNycTBvMWZ5ZGh3OSJ9.JvfwdqhWlRi2D_1D8xSzww';
+    mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,

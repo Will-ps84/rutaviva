@@ -7,6 +7,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+function jsonRes(body: Record<string, unknown>, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ── Inline validation (no external deps) ──────────────────────────────────────
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[0-9]{7,15}$/;
+
 interface DriverImportRow {
   email: string;
   full_name: string;
@@ -14,9 +25,35 @@ interface DriverImportRow {
   license?: string;
 }
 
+function validateDriver(row: unknown): { data: DriverImportRow; error?: never } | { data?: never; error: string } {
+  if (!row || typeof row !== "object") return { error: "Row is not an object" };
+  const r = row as Record<string, unknown>;
+
+  const email = typeof r.email === "string" ? r.email.trim() : "";
+  if (!email || !EMAIL_RE.test(email) || email.length > 255)
+    return { error: `Invalid email: "${email}"` };
+
+  const full_name = typeof r.full_name === "string" ? r.full_name.trim() : "";
+  if (!full_name || full_name.length < 2 || full_name.length > 100)
+    return { error: `Invalid full_name (2–100 chars): "${full_name}"` };
+
+  const phone = typeof r.phone === "string" ? r.phone.trim() : "";
+  if (phone && (!PHONE_RE.test(phone) || phone.length > 20))
+    return { error: `Invalid phone format: "${phone}"` };
+
+  const license = typeof r.license === "string" ? r.license.trim().slice(0, 50) : undefined;
+
+  return { data: { email, full_name, phone, license } };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface ImportResult {
   success: number;
   errors: string[];
+}
+
+function phoneToEmail(phone: string): string {
+  return phone.replace(/[^0-9]/g, "") + "@driver.rutaviva.local";
 }
 
 serve(async (req: Request) => {
@@ -29,13 +66,10 @@ serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller is authenticated and is admin
+    // Verify caller is authenticated
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "No authorization header" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "No authorization header" }, 401);
     }
 
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
@@ -45,10 +79,7 @@ serve(async (req: Request) => {
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "Unauthorized" }, 401);
     }
 
     // Get caller's company_id
@@ -59,10 +90,7 @@ serve(async (req: Request) => {
       .single();
 
     if (!profile?.company_id) {
-      return new Response(JSON.stringify({ error: "No company found" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "No company found" }, 400);
     }
 
     // Verify caller is admin
@@ -75,37 +103,39 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (!roleData) {
-      return new Response(JSON.stringify({ error: "Only admins can import drivers" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonRes({ error: "Only admins can import drivers" }, 403);
     }
 
-    const { drivers } = await req.json() as { drivers: DriverImportRow[] };
+    const body = await req.json();
+    const { drivers } = body as { drivers: unknown[] };
 
-    if (!drivers || !Array.isArray(drivers) || drivers.length === 0) {
-      return new Response(JSON.stringify({ error: "No drivers provided" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!Array.isArray(drivers) || drivers.length === 0) {
+      return jsonRes({ error: "No drivers provided" }, 400);
+    }
+
+    // Enforce batch size limit
+    if (drivers.length > 100) {
+      return jsonRes({ error: "Maximum 100 drivers per import batch" }, 400);
     }
 
     const result: ImportResult = { success: 0, errors: [] };
 
-    for (const driver of drivers) {
-      try {
-        if (!driver.email || !driver.email.includes("@")) {
-          result.errors.push(`${driver.email || "vacío"}: Email inválido`);
-          continue;
-        }
+    for (const raw of drivers) {
+      const validated = validateDriver(raw);
+      if (validated.error) {
+        result.errors.push(validated.error);
+        continue;
+      }
+      const driver = validated.data;
 
-        // Create user in auth
+      try {
+        // Create user in auth (using email as-is for imported drivers)
         const tempPassword = crypto.randomUUID().slice(0, 12) + "Aa1!";
         const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: driver.email.trim(),
+          email: driver.email,
           password: tempPassword,
           email_confirm: true,
-          user_metadata: { full_name: driver.full_name?.trim() || "" },
+          user_metadata: { full_name: driver.full_name },
         });
 
         if (authError) {
@@ -118,24 +148,35 @@ serve(async (req: Request) => {
           continue;
         }
 
-        // Update profile with company_id and phone
+        // Upsert profile
         await supabaseAdmin
           .from("profiles")
-          .update({
-            full_name: driver.full_name?.trim() || null,
-            phone: driver.phone?.trim() || null,
+          .upsert({
+            id: authUser.user.id,
+            full_name: driver.full_name,
+            phone: driver.phone || null,
             company_id: profile.company_id,
-          })
-          .eq("id", authUser.user.id);
+          }, { onConflict: "id" });
 
         // Assign driver role
-        await supabaseAdmin
+        const { error: roleErr } = await supabaseAdmin
           .from("user_roles")
-          .insert({
+          .upsert({
             user_id: authUser.user.id,
             company_id: profile.company_id,
             role: "driver",
-          });
+            status: "active",
+          }, { onConflict: "user_id,role" });
+
+        if (roleErr) {
+          const msg = roleErr.message?.toLowerCase() ?? "";
+          if (msg.includes("quota") || msg.includes("max_drivers") || msg.includes("membership")) {
+            result.errors.push(`${driver.email}: Límite de conductores alcanzado`);
+            continue;
+          }
+          result.errors.push(`${driver.email}: ${roleErr.message}`);
+          continue;
+        }
 
         result.success++;
       } catch (err) {
@@ -143,14 +184,8 @@ serve(async (req: Request) => {
       }
     }
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonRes(result as unknown as Record<string, unknown>, 200);
   } catch (error) {
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Internal error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonRes({ error: "Internal server error" }, 500);
   }
 });

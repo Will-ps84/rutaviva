@@ -46,12 +46,6 @@ export function useLocationTracking({
         return false;
       }
 
-      console.log('[GPS] Location sent:', {
-        lat: position.latitude.toFixed(6),
-        lng: position.longitude.toFixed(6),
-        accuracy: position.accuracy?.toFixed(1),
-        routeId: routeIdRef.current,
-      });
       
       setLastSentAt(new Date());
       setSendCount(prev => prev + 1);
@@ -69,7 +63,7 @@ export function useLocationTracking({
   }, [sendLocation]);
 
   const handleError = useCallback((error: GeolocationPositionError) => {
-    console.error('[GPS] Error:', error.message);
+    
     
     let message = 'Error de GPS';
     switch (error.code) {

@@ -18,7 +18,7 @@ import { useUpdateRouteStop, type RouteStop } from '@/hooks/useRoutes';
 import { toast } from '@/hooks/use-toast';
 import mapboxgl from 'mapbox-gl';
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1Ijoid2lsbHBzODQiLCJhIjoiY21sYjUxZXZ3MG4zcjNycTBvMWZ5ZGh3OSJ9.JvfwdqhWlRi2D_1D8xSzww';
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
 
 interface EditStopDialogProps {
   stop: RouteStop;
