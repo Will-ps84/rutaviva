@@ -103,7 +103,6 @@ export function useDriverLocations() {
       .order('recorded_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching locations:', error);
       setIsLoading(false);
       return;
     }

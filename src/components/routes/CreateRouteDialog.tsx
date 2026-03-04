@@ -177,7 +177,7 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
       onOpenChange(false);
       navigate(`/app/routes/${route.id}`);
     } catch (error) {
-      console.error('Error creating route:', error);
+      // Error creating route — surface to user via toast
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Error al crear la ruta', variant: 'destructive' });
     } finally {
       setIsSaving(false);

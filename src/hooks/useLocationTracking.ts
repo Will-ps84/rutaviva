@@ -41,18 +41,12 @@ export function useLocationTracking({
         });
 
       if (error) {
-        console.error('Error sending location:', error);
         setSendError(error.message);
         return false;
       }
-
-      
-      setLastSentAt(new Date());
-      setSendCount(prev => prev + 1);
       setSendError(null);
       return true;
     } catch (err) {
-      console.error('Error sending location:', err);
       setSendError(err instanceof Error ? err.message : 'Unknown error');
       return false;
     }
