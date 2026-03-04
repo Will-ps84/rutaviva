@@ -26,8 +26,18 @@ serve(async (req: Request) => {
       });
     }
 
-    if (typeof new_password !== "string" || new_password.length < 6) {
-      return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), {
+    const PASSWORD_MIN_LENGTH = 10;
+    const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()\-_=+[\]{};:'",.<>/?\\|`~])[A-Za-z\d@$!%*?&#^()\-_=+[\]{};:'",.<>/?\\|`~]{10,}$/;
+
+    if (typeof new_password !== "string" || new_password.length < PASSWORD_MIN_LENGTH) {
+      return new Response(JSON.stringify({ error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!PASSWORD_REGEX.test(new_password)) {
+      return new Response(JSON.stringify({ error: "La contraseña debe contener mayúsculas, minúsculas, un número y un carácter especial" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
