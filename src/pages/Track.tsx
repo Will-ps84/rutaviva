@@ -45,10 +45,10 @@ interface DriverLocation {
 
 function getStatusInfo(status: string) {
   switch (status) {
-    case 'done': return { label: '✅ Entregado', color: 'bg-green-500', description: 'Tu pedido fue entregado correctamente.' };
-    case 'failed': return { label: '❌ No entregado', color: 'bg-red-500', description: 'No se pudo completar la entrega.' };
-    case 'skipped': return { label: '⏭️ Omitido', color: 'bg-yellow-500', description: 'La entrega fue omitida.' };
-    case 'arrived': return { label: '📍 Conductor llegó', color: 'bg-blue-500', description: 'El conductor está en tu dirección.' };
+    case 'done': return { label: '✅ Entregado', color: 'bg-[hsl(var(--status-active))]', description: 'Tu pedido fue entregado correctamente.' };
+    case 'failed': return { label: '❌ No entregado', color: 'bg-destructive', description: 'No se pudo completar la entrega.' };
+    case 'skipped': return { label: '⏭️ Omitido', color: 'bg-[hsl(var(--status-warning))]', description: 'La entrega fue omitida en esta ruta.' };
+    case 'arrived': return { label: '📍 El conductor llegó', color: 'bg-primary', description: 'El conductor está en tu dirección ahora.' };
     default: return { label: '🚚 En camino', color: 'bg-primary', description: 'Tu pedido está en camino.' };
   }
 }

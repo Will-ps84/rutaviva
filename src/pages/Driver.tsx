@@ -53,6 +53,22 @@ export default function Driver() {
 
   if (!user) return <Navigate to="/driver/login" replace />;
 
+  // Guard: missing company_id
+  if (!profileLoading && profile && !profile.company_id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-3 max-w-sm">
+          <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+          <h2 className="text-lg font-semibold">Cuenta incompleta</h2>
+          <p className="text-muted-foreground text-sm">Tu cuenta no está asociada a ninguna empresa. Contacta a tu administrador para que te asigne correctamente.</p>
+          <Button variant="outline" onClick={() => { driverLogout(); navigate('/choose-mode'); }}>
+            <LogOut className="h-4 w-4 mr-2" /> Cerrar sesión
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // Block tracking start if no valid route
   const hasActiveRoute = todayRoute && ['published', 'in_progress'].includes(todayRoute.status);
 
