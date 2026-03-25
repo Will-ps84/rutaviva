@@ -13,9 +13,9 @@ export interface Route {
   vehicle_id: string | null;
   polyline: string | null;
   completed_at: string | null;
+  started_at: string | null;
   created_at: string;
   updated_at: string;
-  // Joined data
   driver?: { id: string; full_name: string | null } | null;
   vehicle?: { id: string; plate: string; label: string | null } | null;
   route_stops?: RouteStop[];
@@ -30,14 +30,20 @@ export interface RouteStop {
   lng: number | null;
   planned_window_start: string | null;
   planned_window_end: string | null;
-  status: 'pending' | 'arrived' | 'done' | 'skipped';
+  status: 'pending' | 'arrived' | 'done' | 'skipped' | 'failed';
   notes: string | null;
   created_at: string;
+  completed_at: string | null;
+  failure_reason: string | null;
+  evidence_url: string | null;
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  tracking_token: string | null;
 }
 
 export function useRoutes() {
   const { user } = useAuth();
-  
+
   return useQuery({
     queryKey: ['routes'],
     queryFn: async () => {
@@ -50,9 +56,9 @@ export function useRoutes() {
           route_stops(count)
         `)
         .order('date', { ascending: false });
-      
+
       if (error) throw error;
-      return data as (Route & { route_stops: { count: number }[] })[];
+      return (data ?? []) as unknown as (Route & { route_stops: { count: number }[] })[];
     },
     enabled: !!user,
   });
@@ -60,12 +66,12 @@ export function useRoutes() {
 
 export function useRoute(routeId: string | undefined) {
   const { user } = useAuth();
-  
+
   return useQuery({
     queryKey: ['route', routeId],
     queryFn: async () => {
       if (!routeId) throw new Error('Route ID required');
-      
+
       const { data, error } = await supabase
         .from('routes')
         .select(`
@@ -76,15 +82,14 @@ export function useRoute(routeId: string | undefined) {
         `)
         .eq('id', routeId)
         .single();
-      
+
       if (error) throw error;
-      
-      // Sort stops by sequence
+
       if (data.route_stops) {
-        data.route_stops.sort((a: RouteStop, b: RouteStop) => a.seq - b.seq);
+        (data.route_stops as RouteStop[]).sort((a, b) => a.seq - b.seq);
       }
-      
-      return data as Route;
+
+      return data as unknown as Route;
     },
     enabled: !!user && !!routeId,
   });
@@ -92,46 +97,30 @@ export function useRoute(routeId: string | undefined) {
 
 export function useCreateRoute() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (data: { name: string; date: string; company_id: string }) => {
       const { data: route, error } = await supabase
         .from('routes')
-        .insert({
-          name: data.name,
-          date: data.date,
-          company_id: data.company_id,
-          status: 'draft',
-        })
+        .insert({ name: data.name, date: data.date, company_id: data.company_id, status: 'draft' })
         .select()
         .single();
-      
       if (error) throw error;
       return route;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['routes'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['routes'] }); },
     onError: (error) => {
-      toast({
-        title: 'Error al crear ruta',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error al crear ruta', description: error.message, variant: 'destructive' });
     },
   });
 }
 
 export function useCreateRouteStops() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: async (stops: Omit<RouteStop, 'id' | 'created_at'>[]) => {
-      const { data, error } = await supabase
-        .from('route_stops')
-        .insert(stops)
-        .select();
-      
+    mutationFn: async (stops: Omit<RouteStop, 'id' | 'created_at' | 'completed_at' | 'failure_reason' | 'evidence_url' | 'recipient_name' | 'recipient_phone' | 'tracking_token'>[]) => {
+      const { data, error } = await supabase.from('route_stops').insert(stops).select();
       if (error) throw error;
       return data;
     },
@@ -146,112 +135,73 @@ export function useCreateRouteStops() {
 
 export function useUpdateRoute() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Route> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('routes')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-      
+      const { data, error } = await supabase.from('routes').update(updates).eq('id', id).select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['route', data.id] });
       queryClient.invalidateQueries({ queryKey: ['routes'] });
-      toast({
-        title: 'Ruta actualizada',
-        description: 'Los cambios se guardaron correctamente.',
-      });
+      toast({ title: 'Ruta actualizada', description: 'Los cambios se guardaron correctamente.' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error al actualizar',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error al actualizar', description: error.message, variant: 'destructive' });
     },
   });
 }
 
 export function useUpdateRouteStop() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, route_id, ...updates }: Partial<RouteStop> & { id: string; route_id: string }) => {
-      const { data, error } = await supabase
-        .from('route_stops')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-      
+      const { data, error } = await supabase.from('route_stops').update(updates).eq('id', id).select().single();
       if (error) throw error;
       return { ...data, route_id };
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['route', data.route_id] });
-    },
+    onSuccess: (data) => { queryClient.invalidateQueries({ queryKey: ['route', data.route_id] }); },
   });
 }
 
 export function useDeleteRoute() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (routeId: string) => {
-      const { error } = await supabase
-        .from('routes')
-        .delete()
-        .eq('id', routeId);
-      
+      const { error } = await supabase.from('routes').delete().eq('id', routeId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routes'] });
-      toast({
-        title: 'Ruta eliminada',
-        description: 'La ruta fue eliminada correctamente.',
-      });
+      toast({ title: 'Ruta eliminada', description: 'La ruta fue eliminada correctamente.' });
     },
   });
 }
 
 export function useReactivateRoute() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (routeId: string) => {
       const { data, error } = await supabase
         .from('routes')
-        .update({
-          status: 'in_progress',
-          completed_at: null,
-        })
+        .update({ status: 'in_progress', completed_at: null })
         .eq('id', routeId)
         .select()
         .single();
-      
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['route', data.id] });
       queryClient.invalidateQueries({ queryKey: ['routes'] });
-      toast({
-        title: 'Ruta reactivada',
-        description: 'La ruta ahora está en progreso nuevamente.',
-      });
+      toast({ title: 'Ruta reactivada', description: 'La ruta ahora está en progreso nuevamente.' });
     },
     onError: (error) => {
-      toast({
-        title: 'Error al reactivar',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Error al reactivar', description: error.message, variant: 'destructive' });
     },
   });
 }

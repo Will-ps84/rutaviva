@@ -229,45 +229,128 @@ export type Database = {
           },
         ]
       }
+      route_alerts: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          driver_id: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          route_id: string | null
+          stop_id: string | null
+          type: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          driver_id?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          route_id?: string | null
+          stop_id?: string | null
+          type: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          driver_id?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          route_id?: string | null
+          stop_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_alerts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_alerts_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_alerts_stop_id_fkey"
+            columns: ["stop_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       route_stops: {
         Row: {
           address_text: string
+          completed_at: string | null
           created_at: string
+          evidence_url: string | null
+          failure_reason: string | null
           id: string
           lat: number | null
           lng: number | null
           notes: string | null
           planned_window_end: string | null
           planned_window_start: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
           route_id: string
           seq: number
           status: Database["public"]["Enums"]["stop_status"]
+          tracking_token: string | null
         }
         Insert: {
           address_text: string
+          completed_at?: string | null
           created_at?: string
+          evidence_url?: string | null
+          failure_reason?: string | null
           id?: string
           lat?: number | null
           lng?: number | null
           notes?: string | null
           planned_window_end?: string | null
           planned_window_start?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
           route_id: string
           seq: number
           status?: Database["public"]["Enums"]["stop_status"]
+          tracking_token?: string | null
         }
         Update: {
           address_text?: string
+          completed_at?: string | null
           created_at?: string
+          evidence_url?: string | null
+          failure_reason?: string | null
           id?: string
           lat?: number | null
           lng?: number | null
           notes?: string | null
           planned_window_end?: string | null
           planned_window_start?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
           route_id?: string
           seq?: number
           status?: Database["public"]["Enums"]["stop_status"]
+          tracking_token?: string | null
         }
         Relationships: [
           {
@@ -289,6 +372,7 @@ export type Database = {
           id: string
           name: string
           polyline: string | null
+          started_at: string | null
           status: Database["public"]["Enums"]["route_status"]
           updated_at: string
           vehicle_id: string | null
@@ -302,6 +386,7 @@ export type Database = {
           id?: string
           name: string
           polyline?: string | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["route_status"]
           updated_at?: string
           vehicle_id?: string | null
@@ -315,6 +400,7 @@ export type Database = {
           id?: string
           name?: string
           polyline?: string | null
+          started_at?: string | null
           status?: Database["public"]["Enums"]["route_status"]
           updated_at?: string
           vehicle_id?: string | null
@@ -817,6 +903,7 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_route_progress: { Args: { p_route_id: string }; Returns: Json }
       get_user_company_id: { Args: never; Returns: string }
       gettransactionid: { Args: never; Returns: unknown }
       has_role: {

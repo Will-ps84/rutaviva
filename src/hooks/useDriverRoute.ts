@@ -2,6 +2,21 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
+export interface DriverStop {
+  id: string;
+  seq: number;
+  address_text: string;
+  status: 'pending' | 'arrived' | 'done' | 'skipped' | 'failed';
+  lat: number | null;
+  lng: number | null;
+  notes: string | null;
+  completed_at: string | null;
+  failure_reason: string | null;
+  evidence_url: string | null;
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  tracking_token: string | null;
+}
 
 export interface DriverRoute {
   id: string;
@@ -9,15 +24,9 @@ export interface DriverRoute {
   date: string;
   status: 'draft' | 'published' | 'in_progress' | 'done';
   vehicle_id: string | null;
-  stops: Array<{
-    id: string;
-    seq: number;
-    address_text: string;
-    status: 'pending' | 'arrived' | 'done' | 'skipped';
-    lat: number | null;
-    lng: number | null;
-    notes: string | null;
-  }>;
+  started_at: string | null;
+  completed_at: string | null;
+  stops: DriverStop[];
 }
 
 export interface DriverProfile {
@@ -29,18 +38,16 @@ export interface DriverProfile {
 
 export function useDriverProfile() {
   const { user } = useAuth();
-  
+
   return useQuery({
     queryKey: ['driver-profile', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
-      
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, company_id, phone')
         .eq('id', user.id)
         .single();
-      
       if (error) throw error;
       return data as DriverProfile;
     },
@@ -50,97 +57,71 @@ export function useDriverProfile() {
 
 export function useDriverTodayRoute() {
   const { user } = useAuth();
-  
+
   return useQuery({
     queryKey: ['driver-active-route', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
-      
-      // Get active route assigned to this driver (no date filter to avoid timezone issues)
+
       const { data: routes, error: routesError } = await supabase
         .from('routes')
-        .select(`
-          id,
-          name,
-          date,
-          status,
-          vehicle_id
-        `)
+        .select('id, name, date, status, vehicle_id, started_at, completed_at')
         .eq('driver_id', user.id)
         .in('status', ['published', 'in_progress', 'done'])
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(1);
-      
+
       if (routesError) throw routesError;
-      
-      if (!routes || routes.length === 0) {
-        return null;
-      }
-      
+      if (!routes || routes.length === 0) return null;
+
       const route = routes[0];
-      
-      // Get stops for this route
+
       const { data: stops, error: stopsError } = await supabase
         .from('route_stops')
-        .select('id, seq, address_text, status, lat, lng, notes')
+        .select('id, seq, address_text, status, lat, lng, notes, completed_at, failure_reason, evidence_url, recipient_name, recipient_phone, tracking_token')
         .eq('route_id', route.id)
         .order('seq', { ascending: true });
-      
+
       if (stopsError) throw stopsError;
-      
+
       return {
         ...route,
-        stops: stops || [],
+        stops: (stops || []) as DriverStop[],
       } as DriverRoute;
     },
     enabled: !!user?.id,
-    refetchInterval: 30000, // Refetch every 30 seconds to get updates
+    refetchInterval: 30000,
   });
 }
 
 export function useUpdateRouteStatus() {
   const { user } = useAuth();
-  
+
   const updateStatus = async (routeId: string, status: 'in_progress' | 'done') => {
-    // Only set completed_at when finishing, clear it when reactivating
+    const updateData: Record<string, unknown> = { status };
     if (status === 'done') {
-      const { error } = await supabase
-        .from('routes')
-        .update({
-          status: 'done' as const,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', routeId)
-        .eq('driver_id', user?.id);
-      
-      if (error) throw error;
+      updateData.completed_at = new Date().toISOString();
     } else {
-      const { error } = await supabase
-        .from('routes')
-        .update({
-          status: 'in_progress' as const,
-          completed_at: null,
-        })
-        .eq('id', routeId)
-        .eq('driver_id', user?.id);
-      
-      if (error) throw error;
+      updateData.completed_at = null;
+      updateData.started_at = new Date().toISOString();
     }
+    const { error } = await supabase
+      .from('routes')
+      .update(updateData)
+      .eq('id', routeId)
+      .eq('driver_id', user?.id);
+    if (error) throw error;
   };
-  
+
   const reactivateRoute = async (routeId: string) => {
     const { error } = await supabase
       .from('routes')
-      .update({
-        status: 'in_progress' as const,
-        completed_at: null,
-      })
+      .update({ status: 'in_progress', completed_at: null })
       .eq('id', routeId)
       .eq('driver_id', user?.id);
-    
     if (error) throw error;
   };
-  
+
   return { updateStatus, reactivateRoute };
 }

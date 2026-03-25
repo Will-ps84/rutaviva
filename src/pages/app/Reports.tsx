@@ -46,9 +46,11 @@ import {
   type ReportFilters,
 } from '@/hooks/useReportsData';
 import { useDrivers, useVehicles } from '@/hooks/useDrivers';
-import { exportToExcel } from '@/lib/exportExcel';
+import { exportToExcelJS } from '@/lib/exportExcelJS';
+import { exportToPDF } from '@/lib/exportPDF';
 import { exportToCsv } from '@/lib/exportCsv';
 import { useTrackingData } from '@/hooks/useTrackingExport';
+import { useUserCompany } from '@/hooks/useCompany';
 
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
