@@ -54,7 +54,8 @@ import { toast } from '@/hooks/use-toast';
 export default function DriversPage() {
   const { data: company, isLoading: companyLoading } = useUserCompany();
   const { session } = useAuth();
-  const { data: drivers, isLoading: driversLoading, error: driversError, refetch: refetchDrivers } = useDrivers();
+  const [showInactiveDrivers, setShowInactiveDrivers] = useState(false);
+  const { data: drivers, isLoading: driversLoading, error: driversError, refetch: refetchDrivers } = useDrivers(showInactiveDrivers);
   const { data: vehicles, isLoading: vehiclesLoading, error: vehiclesError, refetch: refetchVehicles } = useVehicles();
   const createVehicle = useCreateVehicle();
   const deleteVehicle = useDeleteVehicle();
