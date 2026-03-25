@@ -148,12 +148,26 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                       )}
 
                       {isRouteActive && isPendingStop && (
-                        <div className="flex gap-2 ml-11">
+                        <div className="flex gap-2 ml-11 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              import('@/hooks/useUpdateStopStatus').then(m => {
+                                // We call arrived via StopActionDialog context — handled in parent hook
+                              });
+                              handleArrivedDirect(stop.id, stop.route_id_ref ?? '');
+                            }}
+                            className="border-primary text-primary min-h-[44px]"
+                          >
+                            <Navigation className="h-4 w-4 mr-1" />
+                            Llegué
+                          </Button>
                           <Button
                             size="sm"
                             variant={isNextStop ? 'default' : 'outline'}
                             onClick={() => handleAction(stop, 'done')}
-                            className={isNextStop ? 'bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1' : 'flex-1'}
+                            className={`min-h-[44px] ${isNextStop ? 'bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1' : 'flex-1'}`}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-1" />
                             Entregar
@@ -161,7 +175,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                           <Button
                             size="sm" variant="outline"
                             onClick={() => handleAction(stop, 'skipped')}
-                            className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))]"
+                            className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[44px]"
                             title="Omitir"
                           >
                             <SkipForward className="h-4 w-4" />
@@ -169,7 +183,38 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                           <Button
                             size="sm" variant="outline"
                             onClick={() => handleAction(stop, 'failed')}
-                            className="border-destructive text-destructive"
+                            className="border-destructive text-destructive min-h-[44px]"
+                            title="No entregado"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Arrived state: show deliver/fail buttons */}
+                      {isRouteActive && stop.status === 'arrived' && (
+                        <div className="flex gap-2 ml-11 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleAction(stop, 'done')}
+                            className="bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1 min-h-[44px]"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Entregar
+                          </Button>
+                          <Button
+                            size="sm" variant="outline"
+                            onClick={() => handleAction(stop, 'skipped')}
+                            className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[44px]"
+                            title="Omitir"
+                          >
+                            <SkipForward className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm" variant="outline"
+                            onClick={() => handleAction(stop, 'failed')}
+                            className="border-destructive text-destructive min-h-[44px]"
                             title="No entregado"
                           >
                             <XCircle className="h-4 w-4" />
