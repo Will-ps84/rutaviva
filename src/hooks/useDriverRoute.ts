@@ -63,12 +63,14 @@ export function useDriverTodayRoute() {
     queryFn: async () => {
       if (!user?.id) throw new Error('Not authenticated');
 
+      // Priority 1: in_progress (already started), Priority 2: published (ready to start)
+      // Never show done/draft routes as "active"
       const { data: routes, error: routesError } = await supabase
         .from('routes')
         .select('id, name, date, status, vehicle_id, started_at, completed_at')
         .eq('driver_id', user.id)
-        .in('status', ['published', 'in_progress', 'done'])
-        .order('date', { ascending: false })
+        .in('status', ['in_progress', 'published'])
+        .order('status', { ascending: true }) // 'in_progress' < 'published' alphabetically
         .order('created_at', { ascending: false })
         .limit(1);
 

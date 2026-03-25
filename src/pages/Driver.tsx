@@ -134,7 +134,7 @@ export default function Driver() {
     switch (trackingStatus) {
       case 'active': return <Badge className="bg-[hsl(var(--status-active))] text-white">En Ruta</Badge>;
       case 'paused': return <Badge className="bg-[hsl(var(--status-warning))] text-white">Pausado</Badge>;
-      default: return <Badge variant="outline" className="text-muted-foreground">Inactivo</Badge>;
+      default: return null; // No badge when idle — don't confuse with account status
     }
   };
 

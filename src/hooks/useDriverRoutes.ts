@@ -28,8 +28,11 @@ export function useDriverRoutes(filter: 'today' | 'week' | 'all' = 'all') {
         .order('created_at', { ascending: false });
 
       if (filter === 'today') {
+        // "Hoy" shows active/pending routes regardless of date, plus today's done routes
         const today = new Date().toISOString().split('T')[0];
-        query = query.eq('date', today);
+        query = query.or(
+          `status.in.(published,in_progress),and(status.in.(done,draft),date.eq.${today})`
+        );
       } else if (filter === 'week') {
         const now = new Date();
         const weekAgo = new Date(now);
