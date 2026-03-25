@@ -90,7 +90,7 @@ export default function Track() {
       // 1. Get stop by tracking_token
       const { data: stopData, error: stopErr } = await supabase
         .from('route_stops')
-        .select('id, address_text, status, tracking_token, route_id, lat, lng, recipient_name')
+        .select('id, address_text, status, tracking_token, route_id, lat, lng, recipient_name, failure_reason')
         .eq('tracking_token', token)
         .single();
 
@@ -316,11 +316,11 @@ export default function Track() {
         {/* Map */}
         {stop.lat && stop.lng ? (
           <Card className="overflow-hidden">
-            <div ref={mapContainer} style={{ width: '100%', height: 300 }} />
+            <div ref={mapContainer} style={{ width: '100%', height: 280 }} />
           </Card>
         ) : (
-          <Card className="h-48">
-            <CardContent className="h-full flex items-center justify-center">
+          <Card>
+            <CardContent className="py-8 flex items-center justify-center">
               <div className="text-center text-muted-foreground">
                 <MapPin className="h-8 w-8 mx-auto mb-2 opacity-40" />
                 <p className="text-sm">Mapa no disponible</p>
