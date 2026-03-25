@@ -16,6 +16,7 @@ import { RealtimeMapView } from '@/components/maps/RealtimeMapView';
 import { DispatchFiltersBar } from '@/components/dispatch/DispatchFiltersBar';
 import { DispatchKPIs } from '@/components/dispatch/DispatchKPIs';
 import { ActiveRoutesList } from '@/components/dispatch/ActiveRoutesList';
+import { AlertsPanel } from '@/components/dispatch/AlertsPanel';
 
 export default function Dispatch() {
   const { data: company, isLoading: companyLoading } = useUserCompany();
