@@ -286,6 +286,9 @@ export default function Track() {
                 {stop.recipient_name && (
                   <p className="text-sm font-medium mt-1">Para: {stop.recipient_name}</p>
                 )}
+                {stop.failure_reason && stop.status === 'failed' && (
+                  <p className="text-sm text-destructive mt-1">Motivo: {stop.failure_reason}</p>
+                )}
               </div>
             </div>
           </CardContent>
