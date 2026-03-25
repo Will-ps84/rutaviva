@@ -1,9 +1,10 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import { Bell, HelpCircle, Menu, Search, ChevronRight, Home } from 'lucide-react';
+import { HelpCircle, Menu, Search, ChevronRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AlertsBell } from '@/components/AlertsBell';
 
 const routeLabels: Record<string, string[]> = {
   '/app': ['Despacho', 'En Tiempo Real'],
