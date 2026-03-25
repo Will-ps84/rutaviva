@@ -1,8 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { useCreateAlert } from '@/hooks/useRouteAlerts';
-import { useAuth } from '@/hooks/useAuth';
 
 interface UpdateStopStatusParams {
   stopId: string;
@@ -13,100 +11,119 @@ interface UpdateStopStatusParams {
 
 export function useUpdateStopStatus() {
   const queryClient = useQueryClient();
-  const createAlert = useCreateAlert();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ stopId, status, failure_reason, completed_at }: UpdateStopStatusParams) => {
+      // 1. Build stop update payload
       const updates: Record<string, unknown> = { status };
       if (status === 'done') {
         updates.completed_at = completed_at || new Date().toISOString();
       }
       if (status === 'failed' || status === 'skipped') {
-        // Clear completed_at on failure/skip
         updates.completed_at = null;
       }
       if (failure_reason) {
         updates.failure_reason = failure_reason;
       }
 
-      const { data, error } = await supabase
+      // 2. Update the stop
+      const { data: stopData, error: stopError } = await supabase
         .from('route_stops')
         .update(updates)
         .eq('id', stopId)
         .select('id, route_id, status')
         .single();
 
-      if (error) throw error;
+      if (stopError) throw stopError;
 
-      // Auto-advance route status
-      if (data.route_id) {
-        const finalStatuses = ['done', 'skipped', 'failed'];
-        const isFinal = finalStatuses.includes(status);
+      const routeId = stopData.route_id;
+      if (!routeId) return stopData;
 
-        if (status === 'arrived' || status === 'done' || status === 'skipped' || status === 'failed') {
-          // Ensure route is in_progress when first stop is touched
-          const { data: routeData } = await supabase
+      // 3. Fetch current route data (status, company, driver, name)
+      const { data: routeData } = await supabase
+        .from('routes')
+        .select('id, status, company_id, driver_id, name')
+        .eq('id', routeId)
+        .single();
+
+      if (!routeData) return stopData;
+
+      // 4. If route was 'published' and driver touched a stop → move to 'in_progress'
+      if (
+        routeData.status === 'published' &&
+        (status === 'arrived' || status === 'done' || status === 'skipped' || status === 'failed')
+      ) {
+        await supabase
+          .from('routes')
+          .update({ status: 'in_progress', started_at: new Date().toISOString() })
+          .eq('id', routeId);
+      }
+
+      // 5. Fire delivery_failed alert immediately when a stop fails
+      if (status === 'failed' && routeData.company_id) {
+        await supabase.from('route_alerts').insert({
+          company_id: routeData.company_id,
+          route_id: routeId,
+          driver_id: routeData.driver_id,
+          stop_id: stopId,
+          type: 'delivery_failed',
+          message: `❌ Entrega fallida${failure_reason ? `: ${failure_reason}` : ''}`,
+          is_read: false,
+        });
+      }
+
+      // 6. Check if ALL stops are now in a final state
+      const finalStatuses = ['done', 'failed', 'skipped'];
+      if (finalStatuses.includes(status)) {
+        const { data: allStops } = await supabase
+          .from('route_stops')
+          .select('status')
+          .eq('route_id', routeId);
+
+        const allFinished =
+          allStops &&
+          allStops.length > 0 &&
+          allStops.every(s => finalStatuses.includes(s.status));
+
+        if (allFinished && routeData.status !== 'done') {
+          // 7. Close the route
+          await supabase
             .from('routes')
-            .select('status, company_id, driver_id')
-            .eq('id', data.route_id)
-            .single();
+            .update({ status: 'done', completed_at: new Date().toISOString() })
+            .eq('id', routeId);
 
-          if (routeData && routeData.status === 'published') {
-            await supabase
-              .from('routes')
-              .update({ status: 'in_progress', started_at: new Date().toISOString() })
-              .eq('id', data.route_id);
-          }
+          // 8. Fire route_completed alert with driver name and route name
+          if (routeData.company_id) {
+            // Fetch driver name for a richer alert message
+            const { data: driverProfile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', routeData.driver_id ?? '')
+              .maybeSingle();
 
-          // Check if all stops are in a final state → mark route done
-          if (isFinal && routeData) {
-            const { data: allStops } = await supabase
-              .from('route_stops')
-              .select('status')
-              .eq('route_id', data.route_id);
+            const driverName = driverProfile?.full_name || 'El conductor';
+            const routeName = routeData.name || 'la ruta';
 
-            const allFinal = allStops?.every(s => finalStatuses.includes(s.status));
-            if (allFinal && routeData.status !== 'done') {
-              await supabase
-                .from('routes')
-                .update({ status: 'done', completed_at: new Date().toISOString() })
-                .eq('id', data.route_id);
-
-              // Fire route_completed alert
-              if (routeData.company_id) {
-                createAlert.mutate({
-                  company_id: routeData.company_id,
-                  route_id: data.route_id,
-                  driver_id: routeData.driver_id,
-                  stop_id: null,
-                  type: 'route_completed',
-                  message: 'Ruta completada — todas las paradas fueron atendidas',
-                });
-              }
-            }
-
-            // Fire delivery_failed alert for failed stops
-            if (status === 'failed' && routeData.company_id) {
-              createAlert.mutate({
-                company_id: routeData.company_id,
-                route_id: data.route_id,
-                driver_id: routeData.driver_id,
-                stop_id: stopId,
-                type: 'delivery_failed',
-                message: `Entrega fallida${failure_reason ? `: ${failure_reason}` : ''}`,
-              });
-            }
+            await supabase.from('route_alerts').insert({
+              company_id: routeData.company_id,
+              route_id: routeId,
+              driver_id: routeData.driver_id,
+              stop_id: null,
+              type: 'route_completed',
+              message: `✅ ${driverName} completó la ruta "${routeName}"`,
+              is_read: false,
+            });
           }
         }
       }
 
-      return data;
+      return stopData;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['route', data.route_id] });
       queryClient.invalidateQueries({ queryKey: ['driver-active-route'] });
       queryClient.invalidateQueries({ queryKey: ['active-routes'] });
+      queryClient.invalidateQueries({ queryKey: ['route-alerts'] });
 
       if (data.status === 'done') {
         toast({ title: '✅ Parada completada', description: 'El progreso de la ruta se actualizó.' });
@@ -115,7 +132,7 @@ export function useUpdateStopStatus() {
       }
     },
     onError: (error) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error', description: (error as Error).message, variant: 'destructive' });
     },
   });
 }

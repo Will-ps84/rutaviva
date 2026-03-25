@@ -56,7 +56,7 @@ import { useUserCompany } from '@/hooks/useCompany';
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
   published: 'Publicada',
-  in_progress: 'En progreso',
+  in_progress: 'En curso',
   done: 'Completada',
 };
 
