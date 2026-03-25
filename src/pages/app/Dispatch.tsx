@@ -16,6 +16,7 @@ import { RealtimeMapView } from '@/components/maps/RealtimeMapView';
 import { DispatchFiltersBar } from '@/components/dispatch/DispatchFiltersBar';
 import { DispatchKPIs } from '@/components/dispatch/DispatchKPIs';
 import { ActiveRoutesList } from '@/components/dispatch/ActiveRoutesList';
+import { AlertsPanel } from '@/components/dispatch/AlertsPanel';
 
 export default function Dispatch() {
   const { data: company, isLoading: companyLoading } = useUserCompany();
@@ -110,60 +111,72 @@ export default function Dispatch() {
         </div>
       )}
 
-      {/* Main Content: Map + Routes List */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Map - Takes 2 columns on large screens */}
-        <Card className="lg:col-span-2 h-[500px] relative overflow-hidden">
-          <CardHeader className="absolute top-4 left-4 z-10 bg-card/95 backdrop-blur-sm rounded-lg shadow-panel p-4">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
-              Mapa en tiempo real
-              {filteredLocations.length > 0 && (
-                <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                  {filteredLocations.length} conductor{filteredLocations.length !== 1 ? 'es' : ''}
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 h-full">
-            {locationsLoading ? (
-              <div className="w-full h-full bg-muted flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredLocations.length === 0 ? (
-              <div className="w-full h-full bg-muted flex items-center justify-center">
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-muted-foreground/10 flex items-center justify-center mx-auto">
-                    <MapPin className="h-8 w-8 text-muted-foreground/50" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-muted-foreground">
-                      Sin conductores activos
-                    </p>
-                    <p className="text-sm text-muted-foreground/60">
-                      Los conductores aparecerán cuando inicien tracking desde /driver
-                    </p>
+      {/* Main Content: Map + Routes List + Alerts Panel */}
+      <div className="flex gap-6">
+        {/* Left: Map (flex-1) + Routes List (col) */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Map */}
+          <Card className="lg:col-span-2 h-[500px] relative overflow-hidden">
+            <CardHeader className="absolute top-4 left-4 z-10 bg-card/95 backdrop-blur-sm rounded-lg shadow-panel p-4">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-primary" />
+                Mapa en tiempo real
+                {filteredLocations.length > 0 && (
+                  <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                    {filteredLocations.length} conductor{filteredLocations.length !== 1 ? 'es' : ''}
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 h-full">
+              {locationsLoading ? (
+                <div className="w-full h-full bg-muted flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredLocations.length === 0 ? (
+                <div className="w-full h-full bg-muted flex items-center justify-center">
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-muted-foreground/10 flex items-center justify-center mx-auto">
+                      <MapPin className="h-8 w-8 text-muted-foreground/50" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-muted-foreground">Ningún conductor en ruta ahora</p>
+                      <p className="text-sm text-muted-foreground/60">
+                        Los conductores aparecerán cuando inicien tracking desde /driver
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <RealtimeMapView 
-                drivers={filteredLocations} 
-                className="h-full"
-                centerOn={selectedRouteLocation ? {
-                  lat: selectedRouteLocation.lat,
-                  lng: selectedRouteLocation.lng,
-                } : undefined}
-              />
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <RealtimeMapView 
+                  drivers={filteredLocations} 
+                  className="h-full"
+                  centerOn={selectedRouteLocation ? {
+                    lat: selectedRouteLocation.lat,
+                    lng: selectedRouteLocation.lng,
+                  } : undefined}
+                />
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Routes List - Takes 1 column */}
-        <ActiveRoutesList
-          routes={filteredRoutes}
-          selectedRouteId={selectedRouteId}
-          onRouteSelect={handleRouteSelect}
+          {/* Routes List */}
+          <ActiveRoutesList
+            routes={filteredRoutes}
+            selectedRouteId={selectedRouteId}
+            onRouteSelect={handleRouteSelect}
+          />
+        </div>
+
+        {/* Right: Alerts Panel */}
+        <AlertsPanel
+          onFocusDriver={(driverId) => {
+            const loc = filteredLocations.find(l => l.driver_id === driverId);
+            if (loc) {
+              const route = filteredRoutes.find(r => r.driver_id === driverId);
+              if (route) handleRouteSelect(route.id);
+            }
+          }}
         />
       </div>
     </div>
