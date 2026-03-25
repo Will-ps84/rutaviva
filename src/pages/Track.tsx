@@ -16,6 +16,7 @@ interface TrackingStop {
   lat: number | null;
   lng: number | null;
   recipient_name: string | null;
+  failure_reason: string | null;
 }
 
 interface TrackingRoute {
