@@ -217,14 +217,22 @@ export default function DriversPage() {
         {/* Drivers Tab */}
         <TabsContent value="drivers">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-3">
               <div>
                 <CardTitle>Conductores</CardTitle>
                 <CardDescription>
                   Lista de conductores registrados en tu empresa
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="show-inactive"
+                    checked={showInactiveDrivers}
+                    onCheckedChange={setShowInactiveDrivers}
+                  />
+                  <Label htmlFor="show-inactive" className="text-sm cursor-pointer">Ver inactivos</Label>
+                </div>
                 <Button variant="outline" onClick={() => setShowImportDrivers(true)}>
                   <Upload className="mr-2 h-4 w-4" />
                   Importar
