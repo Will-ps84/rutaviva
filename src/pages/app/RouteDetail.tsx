@@ -357,8 +357,46 @@ export default function RouteDetail() {
           </CardContent>
         </Card>
       </div>
-      
-      {/* Publish Confirmation */}
+
+      {/* Evidence Photos */}
+      {stops.some(s => s.evidence_url) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              📷 Evidencias de entrega
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {stops.filter(s => s.evidence_url).map(stop => (
+                <div key={stop.id} className="space-y-1">
+                  <a href={stop.evidence_url!} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={stop.evidence_url!}
+                      alt={`Evidencia parada #${stop.seq}`}
+                      className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </a>
+                  <p className="text-xs text-muted-foreground truncate">#{stop.seq} · {stop.address_text}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No evidence empty state (only shown for done routes) */}
+      {route.status === 'done' && !stops.some(s => s.evidence_url) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">📷 Evidencias de entrega</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground text-center py-4">Sin evidencias registradas</p>
+          </CardContent>
+        </Card>
+      )}
       <AlertDialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
