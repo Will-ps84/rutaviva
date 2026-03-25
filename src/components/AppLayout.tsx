@@ -77,11 +77,8 @@ export function AppLayout() {
                 />
               </div>
 
-              {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative h-8 w-8">
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-destructive rounded-full" />
-              </Button>
+              {/* Notifications bell */}
+              <AlertsBell />
 
               {/* Help */}
               <Button variant="ghost" size="icon" className="h-8 w-8 hidden sm:flex">
