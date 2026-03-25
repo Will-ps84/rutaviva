@@ -8,6 +8,7 @@ import { MapPin, CheckCircle2, Navigation, SkipForward, XCircle, Phone, Link2 } 
 import { StopActionDialog } from './StopActionDialog';
 import { toast } from '@/hooks/use-toast';
 import type { DriverStop } from '@/hooks/useDriverRoute';
+import { useUpdateStopStatus } from '@/hooks/useUpdateStopStatus';
 
 interface DriverStopsListProps {
   stops: DriverStop[];
@@ -29,6 +30,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedStop, setSelectedStop] = useState<DriverStop | null>(null);
   const [selectedAction, setSelectedAction] = useState<'done' | 'skipped' | 'failed'>('done');
+  const { mutate: updateStatus } = useUpdateStopStatus();
 
   const handleAction = (stop: DriverStop, action: 'done' | 'skipped' | 'failed') => {
     setSelectedStop(stop);
@@ -36,11 +38,18 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
     setDialogOpen(true);
   };
 
+  const handleArrived = (stopId: string) => {
+    updateStatus(
+      { stopId, status: 'arrived' },
+      { onSuccess: () => onStopCompleted?.() }
+    );
+  };
+
   const completedCount = stops.filter(s => ['done', 'skipped', 'failed'].includes(s.status)).length;
   const successCount = stops.filter(s => s.status === 'done').length;
   const totalStops = stops.length;
   const progressPercent = totalStops > 0 ? Math.round((completedCount / totalStops) * 100) : 0;
-  const isRouteActive = routeStatus === 'in_progress';
+  const isRouteActive = ['in_progress', 'published'].includes(routeStatus);
 
   const handleCopyTrackingLink = (token: string | null) => {
     if (!token) return;
@@ -148,12 +157,21 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                       )}
 
                       {isRouteActive && isPendingStop && (
-                        <div className="flex gap-2 ml-11">
+                        <div className="flex gap-2 ml-11 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleArrived(stop.id)}
+                            className="border-primary text-primary min-h-[44px]"
+                          >
+                            <Navigation className="h-4 w-4 mr-1" />
+                            Llegué
+                          </Button>
                           <Button
                             size="sm"
                             variant={isNextStop ? 'default' : 'outline'}
                             onClick={() => handleAction(stop, 'done')}
-                            className={isNextStop ? 'bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1' : 'flex-1'}
+                            className={`min-h-[44px] ${isNextStop ? 'bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1' : 'flex-1'}`}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-1" />
                             Entregar
@@ -161,7 +179,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                           <Button
                             size="sm" variant="outline"
                             onClick={() => handleAction(stop, 'skipped')}
-                            className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))]"
+                            className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[44px]"
                             title="Omitir"
                           >
                             <SkipForward className="h-4 w-4" />
@@ -169,7 +187,38 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                           <Button
                             size="sm" variant="outline"
                             onClick={() => handleAction(stop, 'failed')}
-                            className="border-destructive text-destructive"
+                            className="border-destructive text-destructive min-h-[44px]"
+                            title="No entregado"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Arrived state: show deliver/fail buttons */}
+                      {isRouteActive && stop.status === 'arrived' && (
+                        <div className="flex gap-2 ml-11 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleAction(stop, 'done')}
+                            className="bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1 min-h-[44px]"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Entregar
+                          </Button>
+                          <Button
+                            size="sm" variant="outline"
+                            onClick={() => handleAction(stop, 'skipped')}
+                            className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[44px]"
+                            title="Omitir"
+                          >
+                            <SkipForward className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm" variant="outline"
+                            onClick={() => handleAction(stop, 'failed')}
+                            className="border-destructive text-destructive min-h-[44px]"
                             title="No entregado"
                           >
                             <XCircle className="h-4 w-4" />

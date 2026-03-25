@@ -16,6 +16,7 @@ interface TrackingStop {
   lat: number | null;
   lng: number | null;
   recipient_name: string | null;
+  failure_reason: string | null;
 }
 
 interface TrackingRoute {
@@ -45,10 +46,10 @@ interface DriverLocation {
 
 function getStatusInfo(status: string) {
   switch (status) {
-    case 'done': return { label: '✅ Entregado', color: 'bg-green-500', description: 'Tu pedido fue entregado correctamente.' };
-    case 'failed': return { label: '❌ No entregado', color: 'bg-red-500', description: 'No se pudo completar la entrega.' };
-    case 'skipped': return { label: '⏭️ Omitido', color: 'bg-yellow-500', description: 'La entrega fue omitida.' };
-    case 'arrived': return { label: '📍 Conductor llegó', color: 'bg-blue-500', description: 'El conductor está en tu dirección.' };
+    case 'done': return { label: '✅ Entregado', color: 'bg-[hsl(var(--status-active))]', description: 'Tu pedido fue entregado correctamente.' };
+    case 'failed': return { label: '❌ No entregado', color: 'bg-destructive', description: 'No se pudo completar la entrega.' };
+    case 'skipped': return { label: '⏭️ Omitido', color: 'bg-[hsl(var(--status-warning))]', description: 'La entrega fue omitida en esta ruta.' };
+    case 'arrived': return { label: '📍 El conductor llegó', color: 'bg-primary', description: 'El conductor está en tu dirección ahora.' };
     default: return { label: '🚚 En camino', color: 'bg-primary', description: 'Tu pedido está en camino.' };
   }
 }
@@ -89,7 +90,7 @@ export default function Track() {
       // 1. Get stop by tracking_token
       const { data: stopData, error: stopErr } = await supabase
         .from('route_stops')
-        .select('id, address_text, status, tracking_token, route_id, lat, lng, recipient_name')
+        .select('id, address_text, status, tracking_token, route_id, lat, lng, recipient_name, failure_reason')
         .eq('tracking_token', token)
         .single();
 
@@ -285,6 +286,9 @@ export default function Track() {
                 {stop.recipient_name && (
                   <p className="text-sm font-medium mt-1">Para: {stop.recipient_name}</p>
                 )}
+                {stop.failure_reason && stop.status === 'failed' && (
+                  <p className="text-sm text-destructive mt-1">Motivo: {stop.failure_reason}</p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -315,11 +319,11 @@ export default function Track() {
         {/* Map */}
         {stop.lat && stop.lng ? (
           <Card className="overflow-hidden">
-            <div ref={mapContainer} style={{ width: '100%', height: 300 }} />
+            <div ref={mapContainer} style={{ width: '100%', height: 280 }} />
           </Card>
         ) : (
-          <Card className="h-48">
-            <CardContent className="h-full flex items-center justify-center">
+          <Card>
+            <CardContent className="py-8 flex items-center justify-center">
               <div className="text-center text-muted-foreground">
                 <MapPin className="h-8 w-8 mx-auto mb-2 opacity-40" />
                 <p className="text-sm">Mapa no disponible</p>

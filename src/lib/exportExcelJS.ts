@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { toast } from '@/hooks/use-toast';
 
 export async function exportToExcelJS(
   data: Record<string, unknown>[],
@@ -9,18 +10,16 @@ export async function exportToExcelJS(
   reportType?: string,
   period?: string
 ) {
+  if (data.length === 0) {
+    toast({ title: 'Sin datos para exportar', description: 'No hay datos en el período seleccionado.', variant: 'destructive' });
+    return;
+  }
+
   const wb = new ExcelJS.Workbook();
   wb.creator = 'RutaViva';
   wb.created = new Date();
 
   const ws = wb.addWorksheet(sheetName);
-
-  if (data.length === 0) {
-    ws.addRow(['Sin datos para el período seleccionado']);
-    const buf = await wb.xlsx.writeBuffer();
-    saveAs(new Blob([buf]), `${filename}.xlsx`);
-    return;
-  }
 
   const headers = Object.keys(data[0]);
 
