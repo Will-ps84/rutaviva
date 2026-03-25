@@ -14,9 +14,9 @@ interface DriverRoutesListProps {
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
-  published: { label: 'Asignada', className: 'bg-primary/10 text-primary border-primary/30' },
-  in_progress: { label: 'En progreso', className: 'bg-[hsl(var(--status-warning))]/10 text-[hsl(var(--status-warning))] border-[hsl(var(--status-warning))]/30' },
-  done: { label: 'Completada', className: 'bg-[hsl(var(--status-active))]/10 text-[hsl(var(--status-active))] border-[hsl(var(--status-active))]/30' },
+  published:   { label: 'Asignada',    className: 'bg-primary/10 text-primary border-primary/30' },
+  in_progress: { label: 'En curso',    className: 'bg-[hsl(var(--status-warning))]/10 text-[hsl(var(--status-warning))] border-[hsl(var(--status-warning))]/30' },
+  done:        { label: 'Completada',  className: 'bg-[hsl(var(--status-active))]/10 text-[hsl(var(--status-active))] border-[hsl(var(--status-active))]/30' },
 };
 
 type FilterType = 'today' | 'week' | 'all';

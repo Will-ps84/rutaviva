@@ -50,7 +50,7 @@ import { RotateCcw } from 'lucide-react';
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
   published: 'Publicada',
-  in_progress: 'En Progreso',
+  in_progress: 'En curso',
   done: 'Completada',
 };
 

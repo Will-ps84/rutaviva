@@ -54,15 +54,15 @@ import { useUserCompany } from '@/hooks/useCompany';
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
   published: 'Publicada',
-  in_progress: 'En Progreso',
+  in_progress: 'En curso',
   done: 'Completada',
 };
 
 const statusColors: Record<string, string> = {
-  draft: 'bg-muted text-muted-foreground',
+  draft: 'bg-muted text-muted-foreground border-muted',
   published: 'bg-primary/10 text-primary border-primary/30',
-  in_progress: 'bg-accent/50 text-accent-foreground border-accent/30',
-  done: 'bg-secondary text-secondary-foreground border-secondary/30',
+  in_progress: 'bg-[hsl(var(--status-warning))]/10 text-[hsl(var(--status-warning))] border-[hsl(var(--status-warning))]/30',
+  done: 'bg-[hsl(var(--status-active))]/10 text-[hsl(var(--status-active))] border-[hsl(var(--status-active))]/30',
 };
 
 // Skeleton row for table loading
