@@ -21,16 +21,22 @@ export interface Vehicle {
   created_at: string;
 }
 
-export function useDrivers() {
+export function useDrivers(includeInactive = false) {
   const { user } = useAuth();
   
   return useQuery({
-    queryKey: ['drivers'],
+    queryKey: ['drivers', includeInactive],
     queryFn: async () => {
-      const { data: driverRoles, error: rolesError } = await supabase
+      let rolesQuery = supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'driver');
+      
+      if (!includeInactive) {
+        rolesQuery = rolesQuery.eq('status', 'active');
+      }
+
+      const { data: driverRoles, error: rolesError } = await rolesQuery;
       
       if (rolesError) throw rolesError;
       
