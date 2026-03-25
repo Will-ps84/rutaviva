@@ -8,6 +8,7 @@ import { MapPin, CheckCircle2, Navigation, SkipForward, XCircle, Phone, Link2 } 
 import { StopActionDialog } from './StopActionDialog';
 import { toast } from '@/hooks/use-toast';
 import type { DriverStop } from '@/hooks/useDriverRoute';
+import { useUpdateStopStatus } from '@/hooks/useUpdateStopStatus';
 
 interface DriverStopsListProps {
   stops: DriverStop[];
@@ -29,6 +30,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedStop, setSelectedStop] = useState<DriverStop | null>(null);
   const [selectedAction, setSelectedAction] = useState<'done' | 'skipped' | 'failed'>('done');
+  const { mutate: updateStatus } = useUpdateStopStatus();
 
   const handleAction = (stop: DriverStop, action: 'done' | 'skipped' | 'failed') => {
     setSelectedStop(stop);
@@ -36,11 +38,18 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
     setDialogOpen(true);
   };
 
+  const handleArrived = (stopId: string) => {
+    updateStatus(
+      { stopId, status: 'arrived' },
+      { onSuccess: () => onStopCompleted?.() }
+    );
+  };
+
   const completedCount = stops.filter(s => ['done', 'skipped', 'failed'].includes(s.status)).length;
   const successCount = stops.filter(s => s.status === 'done').length;
   const totalStops = stops.length;
   const progressPercent = totalStops > 0 ? Math.round((completedCount / totalStops) * 100) : 0;
-  const isRouteActive = routeStatus === 'in_progress';
+  const isRouteActive = ['in_progress', 'published'].includes(routeStatus);
 
   const handleCopyTrackingLink = (token: string | null) => {
     if (!token) return;
