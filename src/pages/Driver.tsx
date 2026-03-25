@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { driverLogout } from '@/services/driverAuth';
-import { 
+import {
   Play, Pause, Square, MapPin, Signal, Clock, Truck, LogOut,
   Navigation, AlertCircle, CheckCircle2, Loader2, RotateCcw
 } from 'lucide-react';
@@ -37,9 +37,7 @@ export default function Driver() {
   });
 
   useEffect(() => {
-    if (isTracking && trackingStatus === 'idle') {
-      setTrackingStatus('active');
-    }
+    if (isTracking && trackingStatus === 'idle') setTrackingStatus('active');
   }, [isTracking, trackingStatus]);
 
   if (authLoading || profileLoading) {
@@ -55,21 +53,29 @@ export default function Driver() {
 
   if (!user) return <Navigate to="/driver/login" replace />;
 
+  // Block tracking start if no valid route
+  const hasActiveRoute = todayRoute && ['published', 'in_progress'].includes(todayRoute.status);
+
   const handleStartRoute = async () => {
-    if (!todayRoute || !['published', 'in_progress'].includes(todayRoute.status)) {
-      toast({ title: '⚠️ Sin ruta asignada', description: 'Estás enviando GPS sin ruta asociada.', variant: 'destructive' });
+    if (!hasActiveRoute) {
+      toast({
+        title: '⚠️ Sin ruta asignada',
+        description: 'No tienes rutas asignadas. Contacta a tu administrador.',
+        variant: 'destructive',
+      });
+      return;
     }
     const granted = await requestPermission();
     if (!granted) {
       toast({ title: 'Permiso requerido', description: 'Necesitas permitir el acceso a tu ubicación.', variant: 'destructive' });
       return;
     }
-    if (todayRoute && todayRoute.status === 'published') {
+    if (todayRoute.status === 'published') {
       try { await updateStatus(todayRoute.id, 'in_progress'); refetchRoute(); } catch { /* silent */ }
     }
     startTracking();
     setTrackingStatus('active');
-    toast({ title: 'Tracking iniciado', description: todayRoute ? `Enviando GPS con ruta: ${todayRoute.name}` : 'Tu ubicación se está enviando cada 5 segundos.' });
+    toast({ title: '🚀 Tracking iniciado', description: `Enviando GPS con ruta: ${todayRoute.name}` });
   };
 
   const handleReactivateRoute = async () => {
@@ -94,17 +100,8 @@ export default function Driver() {
     }
   };
 
-  const handlePauseRoute = () => {
-    stopTracking();
-    setTrackingStatus('paused');
-    toast({ title: 'Tracking pausado' });
-  };
-
-  const handleResumeRoute = () => {
-    startTracking();
-    setTrackingStatus('active');
-    toast({ title: 'Tracking reanudado' });
-  };
+  const handlePauseRoute = () => { stopTracking(); setTrackingStatus('paused'); toast({ title: 'Tracking pausado' }); };
+  const handleResumeRoute = () => { startTracking(); setTrackingStatus('active'); toast({ title: 'Tracking reanudado' }); };
 
   const handleEndRoute = async () => {
     stopTracking();
@@ -115,15 +112,12 @@ export default function Driver() {
     toast({ title: 'Ruta finalizada', description: `Se enviaron ${sendCount} puntos de ubicación.` });
   };
 
-  const handleSelectRoute = (_routeId: string) => {
-    // For now just refetch — future: navigate to route detail
-    refetchRoute();
-  };
+  const handleSelectRoute = (_routeId: string) => { refetchRoute(); };
 
   const getStatusBadge = () => {
     switch (trackingStatus) {
-      case 'active': return <Badge className="bg-status-active text-white">En Ruta</Badge>;
-      case 'paused': return <Badge className="bg-status-warning text-white">Pausado</Badge>;
+      case 'active': return <Badge className="bg-[hsl(var(--status-active))] text-white">En Ruta</Badge>;
+      case 'paused': return <Badge className="bg-[hsl(var(--status-warning))] text-white">Pausado</Badge>;
       default: return <Badge variant="outline" className="text-muted-foreground">Inactivo</Badge>;
     }
   };
@@ -134,6 +128,9 @@ export default function Driver() {
     const minutes = Math.floor(seconds / 60);
     return `${minutes}m ${seconds % 60}s`;
   };
+
+  const completedStops = todayRoute?.stops?.filter(s => s.status === 'done').length ?? 0;
+  const totalStops = todayRoute?.stops?.length ?? 0;
 
   return (
     <div className="min-h-screen bg-background p-4 pb-32">
@@ -166,7 +163,7 @@ export default function Driver() {
         </CardContent>
       </Card>
 
-      {/* My Routes List (#3) */}
+      {/* My Routes List */}
       <DriverRoutesList onSelectRoute={handleSelectRoute} />
 
       {/* Active Route Card */}
@@ -187,18 +184,20 @@ export default function Driver() {
               <div className="flex items-center justify-between">
                 <span className="font-medium">{todayRoute.name}</span>
                 <Badge variant="outline" className={todayRoute.status === 'done' ? 'bg-[hsl(var(--status-active))]/10 text-[hsl(var(--status-active))] border-[hsl(var(--status-active))]' : ''}>
-                  {todayRoute.status === 'done' ? 'Completada' : `${todayRoute.stops.length} paradas`}
+                  {todayRoute.status === 'done' ? 'Completada' : `${totalStops} paradas`}
                 </Badge>
               </div>
-              <div className="text-sm text-muted-foreground">
-                {todayRoute.stops.filter(s => s.status === 'done').length} de {todayRoute.stops.length} completadas
-              </div>
+              {totalStops > 0 && (
+                <div className="text-sm text-muted-foreground">
+                  {completedStops} de {totalStops} completadas
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-4">
               <AlertCircle className="h-8 w-8 mx-auto mb-2 text-destructive opacity-70" />
-              <p className="font-medium text-destructive">⚠️ No tienes ruta asignada</p>
-              <p className="text-xs text-muted-foreground mt-1">Contacta a tu despachador.</p>
+              <p className="font-medium text-destructive">No tienes rutas asignadas</p>
+              <p className="text-xs text-muted-foreground mt-1">Contacta a tu administrador.</p>
             </div>
           )}
         </CardContent>
@@ -209,14 +208,16 @@ export default function Driver() {
         <Card className="mb-4">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Signal className={trackingStatus === 'active' ? 'text-status-active' : 'text-status-warning'} />
+              <Signal className={trackingStatus === 'active' ? 'text-[hsl(var(--status-active))]' : 'text-[hsl(var(--status-warning))]'} />
               Estado del GPS
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2">
-                {trackingStatus === 'active' ? <CheckCircle2 className="h-4 w-4 text-status-active" /> : <Pause className="h-4 w-4 text-status-warning" />}
+                {trackingStatus === 'active'
+                  ? <CheckCircle2 className="h-4 w-4 text-[hsl(var(--status-active))]" />
+                  : <Pause className="h-4 w-4 text-[hsl(var(--status-warning))]" />}
                 <span>{trackingStatus === 'active' ? 'Enviando' : 'Pausado'}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -239,7 +240,7 @@ export default function Driver() {
         </Card>
       )}
 
-      {/* Stops List with dialog (#5) */}
+      {/* Stops List */}
       {todayRoute && todayRoute.stops.length > 0 && (
         <DriverStopsList
           stops={todayRoute.stops}
@@ -269,7 +270,7 @@ export default function Driver() {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t border-border safe-area-bottom z-50">
         <div className="max-w-md mx-auto space-y-2">
           <div className="text-center text-sm text-muted-foreground mb-2">
-            {trackingStatus === 'idle' && 'Presiona para comenzar el tracking GPS'}
+            {trackingStatus === 'idle' && (hasActiveRoute ? 'Presiona para comenzar el tracking GPS' : 'Sin ruta activa asignada')}
             {trackingStatus === 'active' && 'Enviando ubicación cada 5 segundos...'}
             {trackingStatus === 'paused' && 'Tracking pausado'}
           </div>
@@ -282,7 +283,11 @@ export default function Driver() {
           )}
 
           {trackingStatus === 'idle' && todayRoute?.status !== 'done' && (
-            <Button className="w-full h-16 text-xl gap-3 bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 text-white font-bold shadow-lg" onClick={handleStartRoute} disabled={permissionStatus === 'denied'}>
+            <Button
+              className="w-full h-16 text-xl gap-3 bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 text-white font-bold shadow-lg disabled:opacity-50"
+              onClick={handleStartRoute}
+              disabled={permissionStatus === 'denied' || !hasActiveRoute}
+            >
               <Play className="h-7 w-7" /> INICIAR RUTA
             </Button>
           )}
