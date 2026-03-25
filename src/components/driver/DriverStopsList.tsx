@@ -161,12 +161,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
-                              import('@/hooks/useUpdateStopStatus').then(m => {
-                                // We call arrived via StopActionDialog context — handled in parent hook
-                              });
-                              handleArrivedDirect(stop.id, stop.route_id_ref ?? '');
-                            }}
+                            onClick={() => handleArrived(stop.id)}
                             className="border-primary text-primary min-h-[44px]"
                           >
                             <Navigation className="h-4 w-4 mr-1" />
