@@ -131,7 +131,7 @@ export default function Reports() {
 
   const handleExportRoutes = () => {
     if (!routeReports) return;
-    exportToExcel(
+    exportToExcelJS(
       routeReports.map(r => ({
         Fecha: r.date,
         Ruta: r.name,
