@@ -150,7 +150,7 @@ export default function Reports() {
 
   const handleExportDrivers = () => {
     if (!driverReports) return;
-    exportToExcel(
+    exportToExcelJS(
       driverReports.map(d => ({
         Conductor: d.driverName || '—',
         'Rutas totales': d.totalRoutes,
@@ -166,7 +166,7 @@ export default function Reports() {
 
   const handleExportVehicles = () => {
     if (!vehicleReports) return;
-    exportToExcel(
+    exportToExcelJS(
       vehicleReports.map(v => ({
         Placa: v.plate,
         Modelo: v.label || '—',
