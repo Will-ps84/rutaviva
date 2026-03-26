@@ -19,6 +19,17 @@ interface TrackingStop {
   failure_reason: string | null;
 }
 
+function parseCoords(stop: TrackingStop): { lat: number; lng: number } | null {
+  if (stop.lat && stop.lng) {
+    return { lat: Number(stop.lat), lng: Number(stop.lng) };
+  }
+  const match = stop.address_text?.match(/Lat:\s*([-\d.]+),\s*Lng:\s*([-\d.]+)/i);
+  if (match) {
+    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+  }
+  return null;
+}
+
 interface TrackingRoute {
   id: string;
   name: string;
@@ -126,7 +137,7 @@ export default function Track() {
           .single();
         if (companyData) setCompany(companyData as TrackingCompany);
 
-        // 5. Get latest driver location
+        // 5. Get latest driver location — use maybeSingle() to avoid 406 when no GPS yet
         if (routeData.driver_id) {
           const { data: locData } = await supabase
             .from('location_points')
@@ -134,7 +145,7 @@ export default function Track() {
             .eq('route_id', stopData.route_id)
             .order('recorded_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
           if (locData) setDriverLocation({ lat: Number(locData.lat), lng: Number(locData.lng), speed_mps: locData.speed_mps ? Number(locData.speed_mps) : null, recorded_at: locData.recorded_at });
         }
       }
@@ -158,9 +169,12 @@ export default function Track() {
     return () => { supabase.removeChannel(channel); };
   }, [route?.id]);
 
+  // Derive coords — use lat/lng fields or parse from address_text as fallback
+  const coords = stop ? parseCoords(stop) : null;
+
   // Initialize map — clean implementation
   useEffect(() => {
-    if (!stop?.lat || !stop?.lng || !mapContainer.current) return;
+    if (!coords || !mapContainer.current) return;
     if (map.current) return; // already initialized
 
     const mbToken = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
@@ -171,7 +185,7 @@ export default function Track() {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      center: [stop.lng, stop.lat], // [lng, lat] — correct order
+      center: [coords.lng, coords.lat], // [lng, lat] — correct order
       zoom: 15,
       trackResize: true,
     });
@@ -181,11 +195,11 @@ export default function Track() {
 
       // Red destination marker
       new mapboxgl.Marker({ color: '#ef4444' })
-        .setLngLat([stop.lng!, stop.lat!])
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop.address_text || 'Destino'))
+        .setLngLat([coords.lng, coords.lat])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop?.address_text || 'Destino'))
         .addTo(map.current);
 
-      // Blue driver marker if location available
+      // Truck driver marker if location available
       if (driverLocation) {
         const driverEl = document.createElement('div');
         driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>`;
@@ -195,7 +209,7 @@ export default function Track() {
 
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([driverLocation.lng, driverLocation.lat]);
-        bounds.extend([stop.lng!, stop.lat!]);
+        bounds.extend([coords.lng, coords.lat]);
         map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
       }
     });
@@ -206,7 +220,7 @@ export default function Track() {
       driverMarker.current = null;
       destMarker.current = null;
     };
-  }, [stop?.lat, stop?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [coords?.lat, coords?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update driver marker when location changes after map is loaded
   useEffect(() => {
@@ -225,11 +239,11 @@ export default function Track() {
       }
 
       // Update or draw dotted line to destination
-      if (stop?.lat && stop?.lng) {
+      if (coords) {
         const lineData: GeoJSON.Feature<GeoJSON.LineString> = {
           type: 'Feature',
           properties: {},
-          geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [stop.lng, stop.lat]] },
+          geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [coords.lng, coords.lat]] },
         };
         const lineSource = map.current.getSource('driver-to-dest') as mapboxgl.GeoJSONSource | undefined;
         if (lineSource) {
@@ -246,7 +260,7 @@ export default function Track() {
 
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([driverLocation.lng, driverLocation.lat]);
-        bounds.extend([stop.lng, stop.lat]);
+        bounds.extend([coords.lng, coords.lat]);
         map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
       }
     };
@@ -256,7 +270,7 @@ export default function Track() {
     } else {
       map.current.once('load', updateDriver);
     }
-  }, [driverLocation, stop?.lat, stop?.lng]);
+  }, [driverLocation, coords?.lat, coords?.lng]);
 
   if (loading) {
     return (
@@ -283,8 +297,8 @@ export default function Track() {
   const statusInfo = getStatusInfo(stop.status);
   const isCompleted = ['done', 'failed', 'skipped'].includes(stop.status);
   const routeIsLive = route?.status === 'in_progress';
-  const eta = driverLocation && stop.lat && stop.lng
-    ? calcETA(driverLocation.lat, driverLocation.lng, stop.lat, stop.lng, driverLocation.speed_mps)
+  const eta = driverLocation && coords
+    ? calcETA(driverLocation.lat, driverLocation.lng, coords.lat, coords.lng, driverLocation.speed_mps)
     : null;
 
   const ageMin = driverLocation
@@ -351,7 +365,7 @@ export default function Track() {
         )}
 
         {/* Map */}
-        {stop.lat && stop.lng ? (
+        {coords ? (
           <Card className="overflow-hidden">
             <div
               ref={mapContainer}
@@ -369,7 +383,8 @@ export default function Track() {
             <CardContent className="py-8 flex items-center justify-center">
               <div className="text-center text-muted-foreground">
                 <MapPin className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">Mapa no disponible</p>
+                <p className="text-sm font-medium">📍 {stop.address_text}</p>
+                <p className="text-xs mt-1 opacity-60">Mapa no disponible</p>
               </div>
             </CardContent>
           </Card>
