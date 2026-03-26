@@ -3,8 +3,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { driverLogout } from '@/services/driverAuth';
 import {
-  Play, Pause, Square, MapPin, Signal, Clock, Truck, LogOut,
-  Navigation, AlertCircle, CheckCircle2, Loader2, RotateCcw
+  Play, Pause, Square, Signal, Clock, Truck, LogOut,
+  Navigation, AlertCircle, Loader2, RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -142,10 +142,13 @@ export default function Driver() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div
+      style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}
+      className="bg-background"
+    >
 
       {/* ── HEADER FIJO ── */}
-      <div className="flex-shrink-0 bg-background border-b border-border px-4 pt-4 pb-3 space-y-2">
+      <div className="flex-shrink-0 bg-background border-b border-border px-4 pt-3 pb-2 space-y-1.5">
 
         {/* Top bar: logo + nombre + logout */}
         <div className="flex items-center justify-between">
@@ -154,7 +157,7 @@ export default function Driver() {
               <Truck className="h-4 w-4 text-primary-foreground" />
             </div>
             <div className="min-w-0">
-              <p className="font-semibold text-sm leading-tight truncate max-w-[160px]">
+              <p className="font-semibold text-sm leading-tight truncate max-w-[180px]">
                 {profile?.full_name || 'Conductor'}
               </p>
               <p className="text-xs text-muted-foreground leading-tight">Modo Conductor</p>
@@ -174,13 +177,13 @@ export default function Driver() {
             <Loader2 className="h-3 w-3 animate-spin" /> Cargando ruta...
           </div>
         ) : todayRoute ? (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 min-w-0">
                 <Navigation className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                 <span className="text-sm font-medium truncate">{todayRoute.name}</span>
               </div>
-              <span className="text-xs text-muted-foreground flex-shrink-0">
+              <span className="text-xs text-muted-foreground flex-shrink-0 font-mono">
                 {completedStops}/{totalStops} ({progressPercent}%)
               </span>
             </div>
@@ -195,7 +198,7 @@ export default function Driver() {
 
         {/* GPS status compacto cuando está activo */}
         {trackingStatus !== 'idle' && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/40 rounded-md px-2.5 py-1.5">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground bg-muted/40 rounded-md px-2.5 py-1">
             <div className="flex items-center gap-1">
               <Signal className={`h-3 w-3 ${trackingStatus === 'active' ? 'text-[hsl(var(--status-active))]' : 'text-[hsl(var(--status-warning))]'}`} />
               <span>{trackingStatus === 'active' ? 'Enviando GPS' : 'GPS pausado'}</span>
@@ -206,12 +209,7 @@ export default function Driver() {
                 <span>hace {formatTimeSince(lastSentAt)}</span>
               </div>
             )}
-            {position && (
-              <div className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                <span>{sendCount} pts · {position.accuracy?.toFixed(0)}m</span>
-              </div>
-            )}
+            {position && <span className="ml-auto font-mono">{sendCount} pts · {position.accuracy?.toFixed(0)}m</span>}
             {sendError && <span className="text-destructive truncate">{sendError}</span>}
           </div>
         )}
@@ -225,8 +223,16 @@ export default function Driver() {
         )}
       </div>
 
-      {/* ── CUERPO SCROLLABLE ── */}
-      <div className="flex-1 overflow-y-auto pb-28">
+      {/* ── CUERPO SCROLLABLE — flex:1 + overflow-y:auto es la clave ── */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          paddingBottom: '110px',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         <div className="px-4 pt-3 space-y-3">
 
           {/* Mis rutas */}
@@ -253,8 +259,11 @@ export default function Driver() {
         </div>
       </div>
 
-      {/* ── CONTROLES FIJOS AL FONDO ── */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border px-4 py-3 z-50">
+      {/* ── CONTROLES FIJOS AL FONDO — position:fixed garantiza que no empuja el scroll ── */}
+      <div
+        style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50 }}
+        className="bg-background/95 backdrop-blur border-t border-border px-4 py-3"
+      >
         <div className="max-w-md mx-auto space-y-2">
           <p className="text-center text-xs text-muted-foreground">
             {trackingStatus === 'idle' && (hasActiveRoute ? 'Presiona para comenzar el tracking GPS' : 'Sin ruta activa asignada')}
@@ -322,3 +331,4 @@ export default function Driver() {
     </div>
   );
 }
+
