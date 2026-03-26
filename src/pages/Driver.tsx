@@ -3,8 +3,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { driverLogout } from '@/services/driverAuth';
 import {
-  Play, Pause, Square, MapPin, Signal, Clock, Truck, LogOut,
-  Navigation, AlertCircle, CheckCircle2, Loader2, RotateCcw
+  Play, Pause, Square, Signal, Clock, Truck, LogOut,
+  Navigation, AlertCircle, Loader2, RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
