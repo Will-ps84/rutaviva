@@ -169,9 +169,12 @@ export default function Track() {
     return () => { supabase.removeChannel(channel); };
   }, [route?.id]);
 
+  // Derive coords — use lat/lng fields or parse from address_text as fallback
+  const coords = stop ? parseCoords(stop) : null;
+
   // Initialize map — clean implementation
   useEffect(() => {
-    if (!stop?.lat || !stop?.lng || !mapContainer.current) return;
+    if (!coords || !mapContainer.current) return;
     if (map.current) return; // already initialized
 
     const mbToken = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
@@ -182,7 +185,7 @@ export default function Track() {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      center: [stop.lng, stop.lat], // [lng, lat] — correct order
+      center: [coords.lng, coords.lat], // [lng, lat] — correct order
       zoom: 15,
       trackResize: true,
     });
@@ -192,11 +195,11 @@ export default function Track() {
 
       // Red destination marker
       new mapboxgl.Marker({ color: '#ef4444' })
-        .setLngLat([stop.lng!, stop.lat!])
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop.address_text || 'Destino'))
+        .setLngLat([coords.lng, coords.lat])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop?.address_text || 'Destino'))
         .addTo(map.current);
 
-      // Blue driver marker if location available
+      // Truck driver marker if location available
       if (driverLocation) {
         const driverEl = document.createElement('div');
         driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>`;
@@ -206,7 +209,7 @@ export default function Track() {
 
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([driverLocation.lng, driverLocation.lat]);
-        bounds.extend([stop.lng!, stop.lat!]);
+        bounds.extend([coords.lng, coords.lat]);
         map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
       }
     });
@@ -217,7 +220,7 @@ export default function Track() {
       driverMarker.current = null;
       destMarker.current = null;
     };
-  }, [stop?.lat, stop?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [coords?.lat, coords?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update driver marker when location changes after map is loaded
   useEffect(() => {
