@@ -14,6 +14,7 @@ import {
   MoreVertical,
   Copy,
   RotateCcw,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +49,7 @@ import { CreateRouteDialog } from '@/components/routes/CreateRouteDialog';
 import { DuplicateRouteDialog } from '@/components/routes/DuplicateRouteDialog';
 import { ResumeFailedDialog } from '@/components/routes/ResumeFailedDialog';
 import { CompanySetupCard } from '@/components/company/CompanySetupCard';
-import { useRoutes, useDeleteRoute, useRoute } from '@/hooks/useRoutes';
+import { useRoutes, useDeleteRoute, useRoute, useUpdateRoute } from '@/hooks/useRoutes';
 import { useUserCompany } from '@/hooks/useCompany';
 
 const statusLabels: Record<string, string> = {
