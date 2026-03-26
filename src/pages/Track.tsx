@@ -345,7 +345,7 @@ export default function Track() {
         {/* Map */}
         {stop.lat && stop.lng ? (
           <Card className="overflow-hidden">
-            <div ref={mapContainer} style={{ width: '100%', height: 280 }} />
+            <div ref={mapContainer} style={{ width: '100%', height: '300px', display: 'block' }} />
           </Card>
         ) : (
           <Card>
