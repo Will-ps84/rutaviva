@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -24,7 +24,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useCreateRoute, useCreateRouteStops } from '@/hooks/useRoutes';
 import { useUserCompany } from '@/hooks/useCompany';
-import { geocodeAddress } from '@/services/geocoding';
+import { geocodeAddress, geocodeSuggestions, type GeocodingSuggestion } from '@/services/geocoding';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -44,6 +44,95 @@ function createEmptyEntry(): AddressEntry {
   return { address: '', lat: null, lng: null, geocoding: 'idle' };
 }
 
+function AddressAutocomplete({
+  entry,
+  index,
+  disabled,
+  onUpdate,
+  onGeocode,
+}: {
+  entry: AddressEntry;
+  index: number;
+  disabled: boolean;
+  onUpdate: (index: number, patch: Partial<AddressEntry>) => void;
+  onGeocode: (index: number) => void;
+}) {
+  const [suggestions, setSuggestions] = useState<GeocodingSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleChange = useCallback((value: string) => {
+    onUpdate(index, { address: value, geocoding: 'idle', lat: null, lng: null });
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.trim().length >= 3) {
+      debounceRef.current = setTimeout(async () => {
+        const results = await geocodeSuggestions(value);
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      }, 500);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [index, onUpdate]);
+
+  const handleSelect = (suggestion: GeocodingSuggestion) => {
+    onUpdate(index, {
+      address: suggestion.placeName,
+      lat: suggestion.lat,
+      lng: suggestion.lng,
+      geocoding: 'success',
+    });
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative flex-1">
+      <Input
+        value={entry.address}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={() => {
+          setTimeout(() => {
+            if (!showSuggestions && entry.geocoding === 'idle' && entry.address.trim()) {
+              onGeocode(index);
+            }
+          }, 200);
+        }}
+        onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+        placeholder="Ej: Av. Larco 1301, Miraflores"
+        disabled={disabled}
+      />
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+          {suggestions.map((s, i) => (
+            <button
+              key={i}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(s); }}
+            >
+              <span className="font-medium">{s.text}</span>
+              <span className="text-muted-foreground text-xs block truncate">{s.placeName}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps) {
   const navigate = useNavigate();
   const { data: company } = useUserCompany();
@@ -57,9 +146,9 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState('');
 
-  const updateEntry = (index: number, patch: Partial<AddressEntry>) => {
+  const updateEntry = useCallback((index: number, patch: Partial<AddressEntry>) => {
     setEntries(prev => prev.map((e, i) => i === index ? { ...e, ...patch } : e));
-  };
+  }, []);
 
   const handleGeocode = async (index: number) => {
     const addr = entries[index].address.trim();
@@ -77,6 +166,11 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
       });
     } else {
       updateEntry(index, { geocoding: 'failed', lat: null, lng: null });
+      toast({
+        title: 'Dirección no encontrada',
+        description: 'Intenta con más detalle, ej: "Av. Larco 1301, Miraflores, Lima". También puedes ingresar coordenadas manualmente.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -177,7 +271,6 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
       onOpenChange(false);
       navigate(`/app/routes/${route.id}`);
     } catch (error) {
-      // Error creating route — surface to user via toast
       toast({ title: 'Error', description: error instanceof Error ? error.message : 'Error al crear la ruta', variant: 'destructive' });
     } finally {
       setIsSaving(false);
@@ -197,7 +290,7 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
         <DialogHeader>
           <DialogTitle>Nueva Ruta</DialogTitle>
           <DialogDescription>
-            Crea una nueva ruta de reparto. Las direcciones se geocodifican automáticamente.
+            Crea una nueva ruta de reparto. Escribe la dirección y selecciona de las sugerencias.
           </DialogDescription>
         </DialogHeader>
 
@@ -254,13 +347,12 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
                 <div key={idx} className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-muted-foreground w-5 text-right shrink-0">{idx + 1}</span>
-                    <Input
-                      value={entry.address}
-                      onChange={(e) => updateEntry(idx, { address: e.target.value, geocoding: 'idle', lat: null, lng: null })}
-                      onBlur={() => handleGeocode(idx)}
-                      placeholder="Ej: Av. Larco 1301, Miraflores"
-                      className="flex-1"
+                    <AddressAutocomplete
+                      entry={entry}
+                      index={idx}
                       disabled={isSaving}
+                      onUpdate={updateEntry}
+                      onGeocode={handleGeocode}
                     />
                     <div className="w-5 shrink-0 flex justify-center">
                       {entry.geocoding === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
