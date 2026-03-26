@@ -103,6 +103,7 @@ function RouteMenuActions({
   const [showDuplicate, setShowDuplicate] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [needDetail, setNeedDetail] = useState(false);
+  const updateRoute = useUpdateRoute();
 
   const { data: routeDetail } = useRoute(needDetail ? routeId : undefined);
 
@@ -110,7 +111,21 @@ function RouteMenuActions({
     s => s.status === 'failed' || s.status === 'skipped'
   ).length ?? 0;
 
+  const totalStops = routeDetail?.route_stops?.length ?? 0;
+  const allStopsFinished = totalStops > 0 && routeDetail?.route_stops?.every(
+    s => ['done', 'failed', 'skipped'].includes(s.status)
+  );
+
   const canResume = routeStatus === 'done' && failedCount > 0;
+  const canMarkDone = routeStatus === 'in_progress' && allStopsFinished;
+
+  const handleMarkDone = () => {
+    updateRoute.mutate({
+      id: routeId,
+      status: 'done',
+      completed_at: new Date().toISOString(),
+    });
+  };
 
   const partialRoute = {
     id: routeId,
