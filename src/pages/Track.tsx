@@ -158,28 +158,46 @@ export default function Track() {
     return () => { supabase.removeChannel(channel); };
   }, [route?.id]);
 
-  // Initialize map
+  // Initialize map — runs after DOM mounts; re-runs if stop coords change
   useEffect(() => {
-    if (!mapContainer.current || map.current || !stop?.lat || !stop?.lng) return;
-    mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
-    map.current = new mapboxgl.Map({
+    if (!stop?.lat || !stop?.lng) return;
+    if (!mapContainer.current) return;
+
+    // Destroy previous instance if coords changed
+    if (map.current) {
+      map.current.remove();
+      map.current = null;
+      driverMarker.current = null;
+      destMarker.current = null;
+    }
+
+    const token = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
+    if (!token) return; // No token — fallback rendered in JSX
+
+    mapboxgl.accessToken = token;
+
+    const m = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
       center: [stop.lng, stop.lat],
       zoom: 14,
+      trackResize: true,
     });
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    map.current = m;
+    m.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Destination marker
-    const destEl = document.createElement('div');
-    destEl.innerHTML = `<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🏠</div>`;
-    destMarker.current = new mapboxgl.Marker(destEl)
-      .setLngLat([stop.lng, stop.lat])
-      .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop.address_text))
-      .addTo(map.current);
+    // Destination marker — added after style loads to avoid blank map
+    m.on('load', () => {
+      const destEl = document.createElement('div');
+      destEl.innerHTML = `<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🏠</div>`;
+      destMarker.current = new mapboxgl.Marker(destEl)
+        .setLngLat([stop.lng!, stop.lat!])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop.address_text))
+        .addTo(m);
+    });
 
-    return () => { map.current?.remove(); map.current = null; };
-  }, [stop]);
+    return () => { m.remove(); map.current = null; driverMarker.current = null; destMarker.current = null; };
+  }, [stop?.lat, stop?.lng, stop?.address_text]);
 
   // Update driver marker
   useEffect(() => {
