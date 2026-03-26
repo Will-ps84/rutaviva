@@ -137,8 +137,42 @@ export default function RouteDetail() {
     reactivateRoute.mutate(id);
     setShowReactivateDialog(false);
   };
-  
-  if (isLoading) {
+
+  const buildTrackingUrl = (token: string | null) =>
+    token ? `https://rutaviva.lovable.app/track/${token}` : null;
+
+  const handleCopyLink = (token: string | null) => {
+    const url = buildTrackingUrl(token);
+    if (!url) return;
+    navigator.clipboard.writeText(url);
+    toast({ title: 'Link copiado ✓', description: 'Link de seguimiento copiado al portapapeles.' });
+  };
+
+  const handleWhatsApp = (stop: typeof stops[number]) => {
+    const url = buildTrackingUrl(stop.tracking_token);
+    const recipient = stop.recipient_name || 'cliente';
+    const companyName = company?.name || 'nuestra empresa';
+    const driverName = route?.driver?.full_name || 'tu conductor';
+
+    const msg = [
+      `Hola ${recipient}, tu pedido de ${companyName} está en camino 🚚`,
+      '',
+      `Conductor: ${driverName}`,
+      `Dirección de entrega: ${stop.address_text}`,
+      '',
+      url ? `Sigue tu entrega en tiempo real aquí:\n${url}` : '',
+      '',
+      'Ante cualquier consulta contáctanos.',
+    ].filter(Boolean).join('\n');
+
+    const phone = stop.recipient_phone?.replace(/[^0-9]/g, '') || '';
+    const waUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank');
+  };
+
+
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
