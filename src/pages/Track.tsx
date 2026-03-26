@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { MapPin, Clock, Truck, Package, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface TrackingStop {
   id: string;
@@ -76,8 +78,8 @@ function calcETA(driverLat: number, driverLng: number, destLat: number, destLng:
   return `${Math.floor(etaMin / 60)}h ${etaMin % 60}min`;
 }
 
-function TrackingMap({ lat, lng }: { lat: number; lng: number; address: string }) {
-  const googleMapsUrl = `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
+// ── Google Maps iframe fallback ──────────────────────────────────────────────
+function TrackingMapIframe({ lat, lng }: { lat: number; lng: number }) {
   return (
     <div style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', height: '300px' }}>
       <iframe
@@ -87,12 +89,139 @@ function TrackingMap({ lat, lng }: { lat: number; lng: number; address: string }
         style={{ border: 0 }}
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
-        src={googleMapsUrl}
+        src={`https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`}
       />
     </div>
   );
 }
 
+// ── Mapbox live map (driver + destination) ───────────────────────────────────
+interface MapboxLiveMapProps {
+  driverLat: number;
+  driverLng: number;
+  destLat: number;
+  destLng: number;
+  onError: () => void;
+}
+
+function MapboxLiveMap({ driverLat, driverLng, destLat, destLng, onError }: MapboxLiveMapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const driverMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
+  // Initial map setup
+  useEffect(() => {
+    const token = import.meta.env.VITE_MAPBOX_TOKEN;
+    if (!token || !containerRef.current) { onError(); return; }
+
+    try {
+      mapboxgl.accessToken = token;
+
+      const map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [destLng, destLat],
+        zoom: 13,
+      });
+
+      mapRef.current = map;
+
+      map.on('error', () => onError());
+
+      map.on('load', () => {
+        // Red destination pin
+        new mapboxgl.Marker({ color: '#ef4444' })
+          .setLngLat([destLng, destLat])
+          .addTo(map);
+
+        // Blue driver pin
+        driverMarkerRef.current = new mapboxgl.Marker({ color: '#3b82f6' })
+          .setLngLat([driverLng, driverLat])
+          .addTo(map);
+
+        // Line between driver and destination
+        map.addSource('route-line', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: [[driverLng, driverLat], [destLng, destLat]] },
+            properties: {},
+          },
+        });
+        map.addLayer({
+          id: 'route-line',
+          type: 'line',
+          source: 'route-line',
+          paint: { 'line-color': '#3b82f6', 'line-width': 2, 'line-dasharray': [2, 2] },
+        });
+
+        // Fit bounds
+        const bounds = new mapboxgl.LngLatBounds(
+          [Math.min(driverLng, destLng) - 0.005, Math.min(driverLat, destLat) - 0.005],
+          [Math.max(driverLng, destLng) + 0.005, Math.max(driverLat, destLat) + 0.005]
+        );
+        map.fitBounds(bounds, { padding: 50 });
+      });
+    } catch {
+      onError();
+    }
+
+    return () => {
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destLat, destLng]);
+
+  // Update driver marker + line on location change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+
+    driverMarkerRef.current?.setLngLat([driverLng, driverLat]);
+
+    const src = map.getSource('route-line') as mapboxgl.GeoJSONSource | undefined;
+    src?.setData({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: [[driverLng, driverLat], [destLng, destLat]] },
+      properties: {},
+    });
+  }, [driverLat, driverLng, destLat, destLng]);
+
+  return (
+    <div ref={containerRef} style={{ width: '100%', height: '300px', borderRadius: '8px', overflow: 'hidden' }} />
+  );
+}
+
+// ── Hybrid map: Mapbox when fresh GPS, otherwise iframe ──────────────────────
+interface HybridMapProps {
+  driverLocation: DriverLocation | null;
+  destLat: number;
+  destLng: number;
+}
+
+function HybridMap({ driverLocation, destLat, destLng }: HybridMapProps) {
+  const [mapboxFailed, setMapboxFailed] = useState(false);
+
+  const hasRecentGPS = driverLocation &&
+    (Date.now() - new Date(driverLocation.recorded_at).getTime()) < 30 * 60 * 1000;
+
+  if (hasRecentGPS && !mapboxFailed) {
+    return (
+      <MapboxLiveMap
+        driverLat={driverLocation.lat}
+        driverLng={driverLocation.lng}
+        destLat={destLat}
+        destLng={destLng}
+        onError={() => setMapboxFailed(true)}
+      />
+    );
+  }
+
+  return <TrackingMapIframe lat={destLat} lng={destLng} />;
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 export default function Track() {
   const { token } = useParams<{ token: string }>();
   const [stop, setStop] = useState<TrackingStop | null>(null);
@@ -265,10 +394,14 @@ export default function Track() {
           </Card>
         )}
 
-        {/* Map */}
+        {/* Hybrid map */}
         <Card className="overflow-hidden">
           {coords ? (
-            <TrackingMap lat={coords.lat} lng={coords.lng} address={stop.address_text} />
+            <HybridMap
+              driverLocation={driverLocation}
+              destLat={coords.lat}
+              destLng={coords.lng}
+            />
           ) : (
             <CardContent className="py-8 flex items-center justify-center">
               <div className="text-center text-muted-foreground">
