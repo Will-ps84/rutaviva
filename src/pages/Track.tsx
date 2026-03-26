@@ -19,6 +19,17 @@ interface TrackingStop {
   failure_reason: string | null;
 }
 
+function parseCoords(stop: TrackingStop): { lat: number; lng: number } | null {
+  if (stop.lat && stop.lng) {
+    return { lat: Number(stop.lat), lng: Number(stop.lng) };
+  }
+  const match = stop.address_text?.match(/Lat:\s*([-\d.]+),\s*Lng:\s*([-\d.]+)/i);
+  if (match) {
+    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+  }
+  return null;
+}
+
 interface TrackingRoute {
   id: string;
   name: string;
