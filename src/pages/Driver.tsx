@@ -134,6 +134,10 @@ export default function Driver() {
   const completedStops = todayRoute?.stops?.filter(s => s.status === 'done').length ?? 0;
   const totalStops = todayRoute?.stops?.length ?? 0;
   const progressPercent = totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0;
+  const allStopsFinished = totalStops > 0 && todayRoute?.stops?.every(
+    s => ['done', 'failed', 'skipped'].includes(s.status)
+  );
+  const showManualFinish = allStopsFinished && todayRoute?.status === 'in_progress';
 
   const getTrackingBadge = () => {
     if (trackingStatus === 'active') return <Badge className="bg-[hsl(var(--status-active))] text-white text-xs">En Ruta</Badge>;
