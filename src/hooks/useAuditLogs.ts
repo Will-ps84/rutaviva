@@ -13,28 +13,27 @@ export interface AuditLog {
   created_at: string;
 }
 
-export function useAuditLogs(companyId?: string) {
+// SECURITY: No external companyId param allowed — company is always derived
+// from the authenticated user's session via useUserCompany() (server-side RLS enforced).
+export function useAuditLogs() {
   const { data: company } = useUserCompany();
-  const targetCompanyId = companyId || company?.id;
 
   return useQuery({
-    queryKey: ['audit-logs', targetCompanyId],
+    queryKey: ['audit-logs', company?.id],
     queryFn: async () => {
-      let query = supabase
+      if (!company?.id) throw new Error('No company');
+
+      const { data, error } = await supabase
         .from('audit_logs')
         .select('*')
+        .eq('company_id', company.id)
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (targetCompanyId) {
-        query = query.eq('company_id', targetCompanyId);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as AuditLog[];
     },
-    enabled: !!targetCompanyId,
+    enabled: !!company?.id,
   });
 }
 
