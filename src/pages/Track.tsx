@@ -158,52 +158,61 @@ export default function Track() {
     return () => { supabase.removeChannel(channel); };
   }, [route?.id]);
 
-  // Initialize map — runs after DOM mounts; re-runs if stop coords change
+  // Initialize map — clean implementation
   useEffect(() => {
-    if (!stop?.lat || !stop?.lng) return;
-    if (!mapContainer.current) return;
+    if (!stop?.lat || !stop?.lng || !mapContainer.current) return;
+    if (map.current) return; // already initialized
 
-    // Destroy previous instance if coords changed
-    if (map.current) {
-      map.current.remove();
+    const mbToken = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
+    if (!mbToken) return;
+
+    mapboxgl.accessToken = mbToken;
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [stop.lng, stop.lat], // [lng, lat] — correct order
+      zoom: 15,
+      trackResize: true,
+    });
+
+    map.current.on('load', () => {
+      if (!map.current) return;
+
+      // Red destination marker
+      new mapboxgl.Marker({ color: '#ef4444' })
+        .setLngLat([stop.lng!, stop.lat!])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop.address_text || 'Destino'))
+        .addTo(map.current);
+
+      // Blue driver marker if location available
+      if (driverLocation) {
+        const driverEl = document.createElement('div');
+        driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>`;
+        driverMarker.current = new mapboxgl.Marker(driverEl)
+          .setLngLat([driverLocation.lng, driverLocation.lat])
+          .addTo(map.current);
+
+        const bounds = new mapboxgl.LngLatBounds();
+        bounds.extend([driverLocation.lng, driverLocation.lat]);
+        bounds.extend([stop.lng!, stop.lat!]);
+        map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
+      }
+    });
+
+    return () => {
+      map.current?.remove();
       map.current = null;
       driverMarker.current = null;
       destMarker.current = null;
-    }
+    };
+  }, [stop?.lat, stop?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const token = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
-    if (!token) return; // No token — fallback rendered in JSX
-
-    mapboxgl.accessToken = token;
-
-    const m = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [stop.lng, stop.lat],
-      zoom: 14,
-      trackResize: true,
-    });
-    map.current = m;
-    m.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    // Destination marker — added after style loads to avoid blank map
-    m.on('load', () => {
-      const destEl = document.createElement('div');
-      destEl.innerHTML = `<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🏠</div>`;
-      destMarker.current = new mapboxgl.Marker(destEl)
-        .setLngLat([stop.lng!, stop.lat!])
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop.address_text))
-        .addTo(m);
-    });
-
-    return () => { m.remove(); map.current = null; driverMarker.current = null; destMarker.current = null; };
-  }, [stop?.lat, stop?.lng, stop?.address_text]);
-
-  // Update driver marker
+  // Update driver marker when location changes after map is loaded
   useEffect(() => {
     if (!map.current || !driverLocation) return;
 
-    const addOrUpdateDriver = () => {
+    const updateDriver = () => {
       if (!map.current) return;
       if (driverMarker.current) {
         driverMarker.current.setLngLat([driverLocation.lng, driverLocation.lat]);
@@ -215,7 +224,7 @@ export default function Track() {
           .addTo(map.current);
       }
 
-      // Draw dotted line to destination
+      // Update or draw dotted line to destination
       if (stop?.lat && stop?.lng) {
         const lineData: GeoJSON.Feature<GeoJSON.LineString> = {
           type: 'Feature',
@@ -235,7 +244,6 @@ export default function Track() {
           });
         }
 
-        // Fit both markers
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([driverLocation.lng, driverLocation.lat]);
         bounds.extend([stop.lng, stop.lat]);
@@ -244,9 +252,9 @@ export default function Track() {
     };
 
     if (map.current.isStyleLoaded()) {
-      addOrUpdateDriver();
+      updateDriver();
     } else {
-      map.current.once('load', addOrUpdateDriver);
+      map.current.once('load', updateDriver);
     }
   }, [driverLocation, stop?.lat, stop?.lng]);
 
