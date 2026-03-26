@@ -159,6 +159,12 @@ function RouteMenuActions({
             <Copy className="mr-2 h-4 w-4" />
             Duplicar ruta
           </DropdownMenuItem>
+          {canMarkDone && (
+            <DropdownMenuItem onClick={handleMarkDone}>
+              <CheckCircle2 className="mr-2 h-4 w-4 text-[hsl(var(--status-active))]" />
+              Marcar como completada
+            </DropdownMenuItem>
+          )}
           {canResume && (
             <DropdownMenuItem onClick={() => setShowResume(true)}>
               <RotateCcw className="mr-2 h-4 w-4" />
