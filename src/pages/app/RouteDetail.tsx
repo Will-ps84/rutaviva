@@ -361,6 +361,7 @@ export default function RouteDetail() {
                     <TableHead>Dirección</TableHead>
                     <TableHead className="w-32">Coordenadas</TableHead>
                     <TableHead className="w-24">Estado</TableHead>
+                    <TableHead className="w-24">Compartir</TableHead>
                     <TableHead className="w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -368,8 +369,11 @@ export default function RouteDetail() {
                   {stops.map((stop) => (
                     <TableRow key={stop.id}>
                       <TableCell className="font-medium">{stop.seq}</TableCell>
-                      <TableCell className="max-w-[200px] truncate" title={stop.address_text}>
-                        {stop.address_text}
+                      <TableCell className="max-w-[200px]">
+                        <span className="block truncate" title={stop.address_text}>{stop.address_text}</span>
+                        {stop.recipient_name && (
+                          <span className="text-xs text-muted-foreground">{stop.recipient_name}</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {stop.lat && stop.lng ? (
@@ -384,6 +388,38 @@ export default function RouteDetail() {
                         <Badge variant="outline" className={`text-xs ${stopStatusColors[stop.status] || ''}`}>
                           {stopStatusLabels[stop.status]}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <TooltipProvider>
+                          <div className="flex gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-[hsl(142,70%,40%)] hover:text-[hsl(142,70%,30%)] hover:bg-[hsl(142,70%,40%)]/10"
+                                  onClick={() => handleWhatsApp(stop)}
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Enviar por WhatsApp</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => handleCopyLink(stop.tracking_token)}
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Copiar link de seguimiento</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell>
                         <EditStopDialog stop={stop} disabled={route.status === 'done'} />
