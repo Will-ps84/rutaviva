@@ -120,13 +120,43 @@ serve(async (req: Request) => {
 
       if (authError) {
         if (authError.message?.toLowerCase().includes("already") || authError.message?.toLowerCase().includes("duplicate")) {
-          // Find existing auth user by email
-          const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-          const found = listData?.users?.find(u => u.email === fakeEmail);
-          if (found) {
-            driverUserId = found.id;
+          // Find existing user by phone in profiles (avoids listUsers DB errors)
+          const { data: existingByPhone } = await supabaseAdmin
+            .from("profiles")
+            .select("id")
+            .eq("phone", e164Phone)
+            .maybeSingle();
+
+          if (existingByPhone) {
+            driverUserId = existingByPhone.id;
           } else {
-            return jsonRes({ error: "Phone already registered by another user" }, 400);
+            // Profile doesn't exist yet — try to delete orphan auth user and recreate
+            // First, attempt to find via listUsers as last resort
+            try {
+              const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 50, page: 1 });
+              const found = listData?.users?.find(u => u.email === fakeEmail);
+              if (found) {
+                // Delete orphan and recreate
+                await supabaseAdmin.auth.admin.deleteUser(found.id);
+                const retryPassword = crypto.randomUUID().slice(0, 16) + "Aa1!";
+                const { data: retryUser, error: retryErr } = await supabaseAdmin.auth.admin.createUser({
+                  email: fakeEmail,
+                  password: retryPassword,
+                  email_confirm: true,
+                  phone: e164Phone,
+                  phone_confirm: true,
+                  user_metadata: { full_name: cleanName },
+                });
+                if (retryErr || !retryUser?.user) {
+                  return jsonRes({ error: "Error recreating driver: " + (retryErr?.message ?? "unknown") }, 400);
+                }
+                driverUserId = retryUser.user.id;
+              } else {
+                return jsonRes({ error: "No se pudo encontrar el usuario existente. Contacte soporte." }, 400);
+              }
+            } catch (_listErr) {
+              return jsonRes({ error: "Error buscando usuario existente. Intente de nuevo." }, 500);
+            }
           }
         } else {
           return jsonRes({ error: authError.message ?? "Error creating auth user" }, 400);
