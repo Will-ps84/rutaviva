@@ -10,6 +10,8 @@ import {
   Truck,
   User,
   AlertCircle,
+  MessageCircle,
+  Copy,
 } from 'lucide-react';
 import { EditStopDialog } from '@/components/routes/EditStopDialog';
 import { Button } from '@/components/ui/button';
@@ -44,8 +46,10 @@ import { Progress } from '@/components/ui/progress';
 import { MapboxView } from '@/components/maps/MapboxView';
 import { useRoute, useUpdateRoute, useReactivateRoute } from '@/hooks/useRoutes';
 import { useDrivers, useVehicles } from '@/hooks/useDrivers';
+import { useUserCompany } from '@/hooks/useCompany';
 import { toast } from '@/hooks/use-toast';
 import { RotateCcw } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
