@@ -158,72 +158,97 @@ export default function Track() {
     return () => { supabase.removeChannel(channel); };
   }, [route?.id]);
 
-  // Initialize map
+  // Initialize map — runs after DOM mounts; re-runs if stop coords change
   useEffect(() => {
-    if (!mapContainer.current || map.current || !stop?.lat || !stop?.lng) return;
-    mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
-    map.current = new mapboxgl.Map({
+    if (!stop?.lat || !stop?.lng) return;
+    if (!mapContainer.current) return;
+
+    // Destroy previous instance if coords changed
+    if (map.current) {
+      map.current.remove();
+      map.current = null;
+      driverMarker.current = null;
+      destMarker.current = null;
+    }
+
+    const token = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
+    if (!token) return; // No token — fallback rendered in JSX
+
+    mapboxgl.accessToken = token;
+
+    const m = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
       center: [stop.lng, stop.lat],
       zoom: 14,
+      trackResize: true,
     });
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    map.current = m;
+    m.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Destination marker
-    const destEl = document.createElement('div');
-    destEl.innerHTML = `<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🏠</div>`;
-    destMarker.current = new mapboxgl.Marker(destEl)
-      .setLngLat([stop.lng, stop.lat])
-      .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop.address_text))
-      .addTo(map.current);
+    // Destination marker — added after style loads to avoid blank map
+    m.on('load', () => {
+      const destEl = document.createElement('div');
+      destEl.innerHTML = `<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🏠</div>`;
+      destMarker.current = new mapboxgl.Marker(destEl)
+        .setLngLat([stop.lng!, stop.lat!])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop.address_text))
+        .addTo(m);
+    });
 
-    return () => { map.current?.remove(); map.current = null; };
-  }, [stop]);
+    return () => { m.remove(); map.current = null; driverMarker.current = null; destMarker.current = null; };
+  }, [stop?.lat, stop?.lng, stop?.address_text]);
 
   // Update driver marker
   useEffect(() => {
     if (!map.current || !driverLocation) return;
 
-    if (driverMarker.current) {
-      driverMarker.current.setLngLat([driverLocation.lng, driverLocation.lat]);
-    } else {
-      const driverEl = document.createElement('div');
-      driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));animation:pulse 2s infinite">🚚</div>`;
-      driverMarker.current = new mapboxgl.Marker(driverEl)
-        .setLngLat([driverLocation.lng, driverLocation.lat])
-        .addTo(map.current);
-    }
-
-    // Draw dotted line if we have destination
-    if (stop?.lat && stop?.lng && map.current.isStyleLoaded()) {
-      const lineSource = map.current.getSource('driver-to-dest') as mapboxgl.GeoJSONSource;
-      const lineData: GeoJSON.Feature<GeoJSON.LineString> = {
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [stop.lng, stop.lat]] },
-      };
-      if (lineSource) {
-        lineSource.setData(lineData);
+    const addOrUpdateDriver = () => {
+      if (!map.current) return;
+      if (driverMarker.current) {
+        driverMarker.current.setLngLat([driverLocation.lng, driverLocation.lat]);
       } else {
-        map.current.addSource('driver-to-dest', { type: 'geojson', data: lineData });
-        map.current.addLayer({
-          id: 'driver-to-dest-line',
-          type: 'line',
-          source: 'driver-to-dest',
-          paint: { 'line-color': 'hsl(224, 89%, 50%)', 'line-width': 2, 'line-dasharray': [2, 3] },
-        });
+        const driverEl = document.createElement('div');
+        driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>`;
+        driverMarker.current = new mapboxgl.Marker(driverEl)
+          .setLngLat([driverLocation.lng, driverLocation.lat])
+          .addTo(map.current);
       }
-    }
 
-    // Fit bounds to show both markers
-    if (stop?.lat && stop?.lng) {
-      const bounds = new mapboxgl.LngLatBounds();
-      bounds.extend([driverLocation.lng, driverLocation.lat]);
-      bounds.extend([stop.lng, stop.lat]);
-      map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
+      // Draw dotted line to destination
+      if (stop?.lat && stop?.lng) {
+        const lineData: GeoJSON.Feature<GeoJSON.LineString> = {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [stop.lng, stop.lat]] },
+        };
+        const lineSource = map.current.getSource('driver-to-dest') as mapboxgl.GeoJSONSource | undefined;
+        if (lineSource) {
+          lineSource.setData(lineData);
+        } else {
+          map.current.addSource('driver-to-dest', { type: 'geojson', data: lineData });
+          map.current.addLayer({
+            id: 'driver-to-dest-line',
+            type: 'line',
+            source: 'driver-to-dest',
+            paint: { 'line-color': 'hsl(224, 89%, 50%)', 'line-width': 2, 'line-dasharray': [2, 3] },
+          });
+        }
+
+        // Fit both markers
+        const bounds = new mapboxgl.LngLatBounds();
+        bounds.extend([driverLocation.lng, driverLocation.lat]);
+        bounds.extend([stop.lng, stop.lat]);
+        map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
+      }
+    };
+
+    if (map.current.isStyleLoaded()) {
+      addOrUpdateDriver();
+    } else {
+      map.current.once('load', addOrUpdateDriver);
     }
-  }, [driverLocation, stop]);
+  }, [driverLocation, stop?.lat, stop?.lng]);
 
   if (loading) {
     return (
@@ -320,7 +345,7 @@ export default function Track() {
         {/* Map */}
         {stop.lat && stop.lng ? (
           <Card className="overflow-hidden">
-            <div ref={mapContainer} style={{ width: '100%', height: 280 }} />
+            <div ref={mapContainer} style={{ width: '100%', height: '300px', display: 'block' }} />
           </Card>
         ) : (
           <Card>
