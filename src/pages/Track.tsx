@@ -203,45 +203,52 @@ export default function Track() {
   useEffect(() => {
     if (!map.current || !driverLocation) return;
 
-    if (driverMarker.current) {
-      driverMarker.current.setLngLat([driverLocation.lng, driverLocation.lat]);
-    } else {
-      const driverEl = document.createElement('div');
-      driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));animation:pulse 2s infinite">🚚</div>`;
-      driverMarker.current = new mapboxgl.Marker(driverEl)
-        .setLngLat([driverLocation.lng, driverLocation.lat])
-        .addTo(map.current);
-    }
-
-    // Draw dotted line if we have destination
-    if (stop?.lat && stop?.lng && map.current.isStyleLoaded()) {
-      const lineSource = map.current.getSource('driver-to-dest') as mapboxgl.GeoJSONSource;
-      const lineData: GeoJSON.Feature<GeoJSON.LineString> = {
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [stop.lng, stop.lat]] },
-      };
-      if (lineSource) {
-        lineSource.setData(lineData);
+    const addOrUpdateDriver = () => {
+      if (!map.current) return;
+      if (driverMarker.current) {
+        driverMarker.current.setLngLat([driverLocation.lng, driverLocation.lat]);
       } else {
-        map.current.addSource('driver-to-dest', { type: 'geojson', data: lineData });
-        map.current.addLayer({
-          id: 'driver-to-dest-line',
-          type: 'line',
-          source: 'driver-to-dest',
-          paint: { 'line-color': 'hsl(224, 89%, 50%)', 'line-width': 2, 'line-dasharray': [2, 3] },
-        });
+        const driverEl = document.createElement('div');
+        driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>`;
+        driverMarker.current = new mapboxgl.Marker(driverEl)
+          .setLngLat([driverLocation.lng, driverLocation.lat])
+          .addTo(map.current);
       }
-    }
 
-    // Fit bounds to show both markers
-    if (stop?.lat && stop?.lng) {
-      const bounds = new mapboxgl.LngLatBounds();
-      bounds.extend([driverLocation.lng, driverLocation.lat]);
-      bounds.extend([stop.lng, stop.lat]);
-      map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
+      // Draw dotted line to destination
+      if (stop?.lat && stop?.lng) {
+        const lineData: GeoJSON.Feature<GeoJSON.LineString> = {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [stop.lng, stop.lat]] },
+        };
+        const lineSource = map.current.getSource('driver-to-dest') as mapboxgl.GeoJSONSource | undefined;
+        if (lineSource) {
+          lineSource.setData(lineData);
+        } else {
+          map.current.addSource('driver-to-dest', { type: 'geojson', data: lineData });
+          map.current.addLayer({
+            id: 'driver-to-dest-line',
+            type: 'line',
+            source: 'driver-to-dest',
+            paint: { 'line-color': 'hsl(224, 89%, 50%)', 'line-width': 2, 'line-dasharray': [2, 3] },
+          });
+        }
+
+        // Fit both markers
+        const bounds = new mapboxgl.LngLatBounds();
+        bounds.extend([driverLocation.lng, driverLocation.lat]);
+        bounds.extend([stop.lng, stop.lat]);
+        map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
+      }
+    };
+
+    if (map.current.isStyleLoaded()) {
+      addOrUpdateDriver();
+    } else {
+      map.current.once('load', addOrUpdateDriver);
     }
-  }, [driverLocation, stop]);
+  }, [driverLocation, stop?.lat, stop?.lng]);
 
   if (loading) {
     return (
