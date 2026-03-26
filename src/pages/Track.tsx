@@ -239,11 +239,11 @@ export default function Track() {
       }
 
       // Update or draw dotted line to destination
-      if (stop?.lat && stop?.lng) {
+      if (coords) {
         const lineData: GeoJSON.Feature<GeoJSON.LineString> = {
           type: 'Feature',
           properties: {},
-          geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [stop.lng, stop.lat]] },
+          geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [coords.lng, coords.lat]] },
         };
         const lineSource = map.current.getSource('driver-to-dest') as mapboxgl.GeoJSONSource | undefined;
         if (lineSource) {
@@ -260,7 +260,7 @@ export default function Track() {
 
         const bounds = new mapboxgl.LngLatBounds();
         bounds.extend([driverLocation.lng, driverLocation.lat]);
-        bounds.extend([stop.lng, stop.lat]);
+        bounds.extend([coords.lng, coords.lat]);
         map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
       }
     };
@@ -270,7 +270,7 @@ export default function Track() {
     } else {
       map.current.once('load', updateDriver);
     }
-  }, [driverLocation, stop?.lat, stop?.lng]);
+  }, [driverLocation, coords?.lat, coords?.lng]);
 
   if (loading) {
     return (
