@@ -1,11 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { MapPin, Clock, Truck, Package, CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { MapPin, Clock, Truck, Package, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface TrackingStop {
   id: string;
@@ -72,11 +69,28 @@ function calcETA(driverLat: number, driverLng: number, destLat: number, destLng:
   const dLng = (destLng - driverLng) * Math.PI / 180;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(driverLat * Math.PI / 180) * Math.cos(destLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
   const distanceM = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const speed = speedMps && speedMps > 1 ? speedMps : 8.33; // default 30km/h
+  const speed = speedMps && speedMps > 1 ? speedMps : 8.33;
   const etaMin = Math.round(distanceM / speed / 60);
   if (etaMin < 1) return 'Menos de 1 min';
   if (etaMin < 60) return `${etaMin} min`;
   return `${Math.floor(etaMin / 60)}h ${etaMin % 60}min`;
+}
+
+function TrackingMap({ lat, lng }: { lat: number; lng: number; address: string }) {
+  const googleMapsUrl = `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
+  return (
+    <div style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', height: '300px' }}>
+      <iframe
+        title="Ubicación de entrega"
+        width="100%"
+        height="300"
+        style={{ border: 0 }}
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        src={googleMapsUrl}
+      />
+    </div>
+  );
 }
 
 export default function Track() {
@@ -89,17 +103,10 @@ export default function Track() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const driverMarker = useRef<mapboxgl.Marker | null>(null);
-  const destMarker = useRef<mapboxgl.Marker | null>(null);
-
-  // Fetch stop by token
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
 
     const load = async () => {
-      // 1. Get stop by tracking_token
       const { data: stopData, error: stopErr } = await supabase
         .from('route_stops')
         .select('id, address_text, status, tracking_token, route_id, lat, lng, recipient_name, failure_reason')
@@ -109,7 +116,6 @@ export default function Track() {
       if (stopErr || !stopData) { setNotFound(true); setLoading(false); return; }
       setStop(stopData as TrackingStop);
 
-      // 2. Get route
       const { data: routeData } = await supabase
         .from('routes')
         .select('id, name, status, driver_id, company_id')
@@ -119,7 +125,6 @@ export default function Track() {
       if (routeData) {
         setRoute(routeData as TrackingRoute);
 
-        // 3. Get driver name
         if (routeData.driver_id) {
           const { data: driverData } = await supabase
             .from('profiles')
@@ -129,7 +134,6 @@ export default function Track() {
           if (driverData) setDriver(driverData as TrackingProfile);
         }
 
-        // 4. Get company name
         const { data: companyData } = await supabase
           .from('companies')
           .select('id, name')
@@ -137,7 +141,6 @@ export default function Track() {
           .single();
         if (companyData) setCompany(companyData as TrackingCompany);
 
-        // 5. Get latest driver location — use maybeSingle() to avoid 406 when no GPS yet
         if (routeData.driver_id) {
           const { data: locData } = await supabase
             .from('location_points')
@@ -169,109 +172,6 @@ export default function Track() {
     return () => { supabase.removeChannel(channel); };
   }, [route?.id]);
 
-  // Derive coords — use lat/lng fields or parse from address_text as fallback
-  const coords = stop ? parseCoords(stop) : null;
-
-  // Initialize map — clean implementation
-  useEffect(() => {
-    if (!coords || !mapContainer.current) return;
-    if (map.current) return; // already initialized
-
-    const mbToken = import.meta.env.VITE_MAPBOX_TOKEN ?? '';
-    if (!mbToken) return;
-
-    mapboxgl.accessToken = mbToken;
-
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [coords.lng, coords.lat], // [lng, lat] — correct order
-      zoom: 15,
-      trackResize: true,
-    });
-
-    map.current.on('load', () => {
-      if (!map.current) return;
-
-      // Red destination marker
-      new mapboxgl.Marker({ color: '#ef4444' })
-        .setLngLat([coords.lng, coords.lat])
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(stop?.address_text || 'Destino'))
-        .addTo(map.current);
-
-      // Truck driver marker if location available
-      if (driverLocation) {
-        const driverEl = document.createElement('div');
-        driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>`;
-        driverMarker.current = new mapboxgl.Marker(driverEl)
-          .setLngLat([driverLocation.lng, driverLocation.lat])
-          .addTo(map.current);
-
-        const bounds = new mapboxgl.LngLatBounds();
-        bounds.extend([driverLocation.lng, driverLocation.lat]);
-        bounds.extend([coords.lng, coords.lat]);
-        map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
-      }
-    });
-
-    return () => {
-      map.current?.remove();
-      map.current = null;
-      driverMarker.current = null;
-      destMarker.current = null;
-    };
-  }, [coords?.lat, coords?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Update driver marker when location changes after map is loaded
-  useEffect(() => {
-    if (!map.current || !driverLocation) return;
-
-    const updateDriver = () => {
-      if (!map.current) return;
-      if (driverMarker.current) {
-        driverMarker.current.setLngLat([driverLocation.lng, driverLocation.lat]);
-      } else {
-        const driverEl = document.createElement('div');
-        driverEl.innerHTML = `<div style="font-size:24px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))">🚚</div>`;
-        driverMarker.current = new mapboxgl.Marker(driverEl)
-          .setLngLat([driverLocation.lng, driverLocation.lat])
-          .addTo(map.current);
-      }
-
-      // Update or draw dotted line to destination
-      if (coords) {
-        const lineData: GeoJSON.Feature<GeoJSON.LineString> = {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates: [[driverLocation.lng, driverLocation.lat], [coords.lng, coords.lat]] },
-        };
-        const lineSource = map.current.getSource('driver-to-dest') as mapboxgl.GeoJSONSource | undefined;
-        if (lineSource) {
-          lineSource.setData(lineData);
-        } else {
-          map.current.addSource('driver-to-dest', { type: 'geojson', data: lineData });
-          map.current.addLayer({
-            id: 'driver-to-dest-line',
-            type: 'line',
-            source: 'driver-to-dest',
-            paint: { 'line-color': 'hsl(224, 89%, 50%)', 'line-width': 2, 'line-dasharray': [2, 3] },
-          });
-        }
-
-        const bounds = new mapboxgl.LngLatBounds();
-        bounds.extend([driverLocation.lng, driverLocation.lat]);
-        bounds.extend([coords.lng, coords.lat]);
-        map.current.fitBounds(bounds, { padding: 80, maxZoom: 16 });
-      }
-    };
-
-    if (map.current.isStyleLoaded()) {
-      updateDriver();
-    } else {
-      map.current.once('load', updateDriver);
-    }
-  }, [driverLocation, coords?.lat, coords?.lng]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -297,6 +197,7 @@ export default function Track() {
   const statusInfo = getStatusInfo(stop.status);
   const isCompleted = ['done', 'failed', 'skipped'].includes(stop.status);
   const routeIsLive = route?.status === 'in_progress';
+  const coords = parseCoords(stop);
   const eta = driverLocation && coords
     ? calcETA(driverLocation.lat, driverLocation.lng, coords.lat, coords.lng, driverLocation.speed_mps)
     : null;
@@ -365,21 +266,10 @@ export default function Track() {
         )}
 
         {/* Map */}
-        {coords ? (
-          <Card className="overflow-hidden">
-            <div
-              ref={mapContainer}
-              style={{
-                width: '100%',
-                height: '300px',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                display: 'block',
-              }}
-            />
-          </Card>
-        ) : (
-          <Card>
+        <Card className="overflow-hidden">
+          {coords ? (
+            <TrackingMap lat={coords.lat} lng={coords.lng} address={stop.address_text} />
+          ) : (
             <CardContent className="py-8 flex items-center justify-center">
               <div className="text-center text-muted-foreground">
                 <MapPin className="h-8 w-8 mx-auto mb-2 opacity-40" />
@@ -387,10 +277,10 @@ export default function Track() {
                 <p className="text-xs mt-1 opacity-60">Mapa no disponible</p>
               </div>
             </CardContent>
-          </Card>
-        )}
+          )}
+        </Card>
 
-        {/* Delivery address */}
+        {/* Delivery info */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
