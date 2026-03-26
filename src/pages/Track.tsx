@@ -297,8 +297,8 @@ export default function Track() {
   const statusInfo = getStatusInfo(stop.status);
   const isCompleted = ['done', 'failed', 'skipped'].includes(stop.status);
   const routeIsLive = route?.status === 'in_progress';
-  const eta = driverLocation && stop.lat && stop.lng
-    ? calcETA(driverLocation.lat, driverLocation.lng, stop.lat, stop.lng, driverLocation.speed_mps)
+  const eta = driverLocation && coords
+    ? calcETA(driverLocation.lat, driverLocation.lng, coords.lat, coords.lng, driverLocation.speed_mps)
     : null;
 
   const ageMin = driverLocation
@@ -365,7 +365,7 @@ export default function Track() {
         )}
 
         {/* Map */}
-        {stop.lat && stop.lng ? (
+        {coords ? (
           <Card className="overflow-hidden">
             <div
               ref={mapContainer}
@@ -383,7 +383,8 @@ export default function Track() {
             <CardContent className="py-8 flex items-center justify-center">
               <div className="text-center text-muted-foreground">
                 <MapPin className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">Mapa no disponible</p>
+                <p className="text-sm font-medium">📍 {stop.address_text}</p>
+                <p className="text-xs mt-1 opacity-60">Mapa no disponible</p>
               </div>
             </CardContent>
           </Card>
