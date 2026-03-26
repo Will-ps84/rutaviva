@@ -9,24 +9,22 @@ interface UpdateStopStatusParams {
   completed_at?: string;
 }
 
+const FINAL_STATUSES = ['done', 'failed', 'skipped'];
+
 export function useUpdateStopStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ stopId, status, failure_reason, completed_at }: UpdateStopStatusParams) => {
-      // 1. Build stop update payload
+      // ── PASO 1: Actualizar la parada ──
       const updates: Record<string, unknown> = { status };
-      if (status === 'done') {
+      if (FINAL_STATUSES.includes(status)) {
         updates.completed_at = completed_at || new Date().toISOString();
-      }
-      if (status === 'failed' || status === 'skipped') {
+      } else if (status === 'arrived' || status === 'pending') {
         updates.completed_at = null;
       }
-      if (failure_reason) {
-        updates.failure_reason = failure_reason;
-      }
+      if (failure_reason) updates.failure_reason = failure_reason;
 
-      // 2. Update the stop
       const { data: stopData, error: stopError } = await supabase
         .from('route_stops')
         .update(updates)
@@ -37,32 +35,35 @@ export function useUpdateStopStatus() {
       if (stopError) throw stopError;
 
       const routeId = stopData.route_id;
-      if (!routeId) return stopData;
+      if (!routeId) {
+        console.error('useUpdateStopStatus: routeId is null/undefined after stop update');
+        return stopData;
+      }
 
-      // 3. Fetch current route data
-      const { data: routeData } = await supabase
+      // ── PASO 2: Obtener estado actual de la ruta ──
+      const { data: routeData, error: routeError } = await supabase
         .from('routes')
         .select('id, status, company_id, driver_id, name')
         .eq('id', routeId)
         .single();
 
-      if (!routeData) return stopData;
+      if (routeError || !routeData) {
+        console.error('useUpdateStopStatus: could not fetch route', routeError);
+        return stopData;
+      }
 
-      let currentRouteStatus = routeData.status;
-
-      // 4. If route was 'published' and driver touched a stop → move to 'in_progress'
+      // Si la ruta estaba 'published' y el conductor tocó una parada → 'in_progress'
       if (
-        currentRouteStatus === 'published' &&
-        (status === 'arrived' || status === 'done' || status === 'skipped' || status === 'failed')
+        routeData.status === 'published' &&
+        ['arrived', 'done', 'skipped', 'failed'].includes(status)
       ) {
         await supabase
           .from('routes')
           .update({ status: 'in_progress', started_at: new Date().toISOString() })
           .eq('id', routeId);
-        currentRouteStatus = 'in_progress';
       }
 
-      // 5. Fire delivery_failed alert immediately when a stop fails
+      // Alerta de entrega fallida
       if (status === 'failed' && routeData.company_id) {
         await supabase.from('route_alerts').insert({
           company_id: routeData.company_id,
@@ -75,22 +76,27 @@ export function useUpdateStopStatus() {
         });
       }
 
-      // 6. Check if ALL stops are now in a final state
-      const finalStatuses = ['done', 'failed', 'skipped'];
-      if (finalStatuses.includes(status)) {
+      // ── PASO 3: Verificar si TODAS las paradas están finalizadas ──
+      if (FINAL_STATUSES.includes(status)) {
         const { data: allStops } = await supabase
           .from('route_stops')
           .select('status')
           .eq('route_id', routeId);
 
-        const totalCount = allStops?.length ?? 0;
-        const finishedCount = allStops?.filter(s => finalStatuses.includes(s.status)).length ?? 0;
-        const allFinished = totalCount > 0 && finishedCount === totalCount;
+        if (!allStops || allStops.length === 0) return stopData;
 
-        console.log('Auto-close check:', { total: totalCount, finished: finishedCount, allFinished, currentRouteStatus });
+        const allFinished = allStops.every(s => FINAL_STATUSES.includes(s.status));
 
-        if (allFinished && currentRouteStatus !== 'done') {
-          // 7. Close the route
+        console.log('Auto-close check:', {
+          routeId,
+          total: allStops.length,
+          finished: allStops.filter(s => FINAL_STATUSES.includes(s.status)).length,
+          allFinished,
+          routeStatus: routeData.status,
+        });
+
+        // ── PASO 4: Cerrar la ruta si todas finalizaron ──
+        if (allFinished) {
           const { error: closeError } = await supabase
             .from('routes')
             .update({ status: 'done', completed_at: new Date().toISOString() })
@@ -101,24 +107,15 @@ export function useUpdateStopStatus() {
           } else {
             console.log('Route auto-closed successfully:', routeId);
 
-            // 8. Fire route_completed alert
+            // Alerta de ruta completada
             if (routeData.company_id) {
-              const { data: driverProfile } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', routeData.driver_id ?? '')
-                .maybeSingle();
-
-              const driverName = driverProfile?.full_name || 'El conductor';
-              const routeName = routeData.name || 'la ruta';
-
               await supabase.from('route_alerts').insert({
                 company_id: routeData.company_id,
                 route_id: routeId,
                 driver_id: routeData.driver_id,
                 stop_id: null,
                 type: 'route_completed',
-                message: `✅ ${driverName} completó la ruta "${routeName}"`,
+                message: `✅ Ruta "${routeData.name || 'sin nombre'}" completada`,
                 is_read: false,
               });
             }

@@ -139,7 +139,7 @@ export default function RouteDetail() {
   };
 
   const buildTrackingUrl = (token: string | null) =>
-    token ? `https://rutaviva.lovable.app/track/${token}` : null;
+    token ? `${window.location.origin}/track/${token}` : null;
 
   const handleCopyLink = (token: string | null) => {
     const url = buildTrackingUrl(token);
