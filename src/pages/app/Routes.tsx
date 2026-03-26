@@ -14,6 +14,7 @@ import {
   MoreVertical,
   Copy,
   RotateCcw,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +49,7 @@ import { CreateRouteDialog } from '@/components/routes/CreateRouteDialog';
 import { DuplicateRouteDialog } from '@/components/routes/DuplicateRouteDialog';
 import { ResumeFailedDialog } from '@/components/routes/ResumeFailedDialog';
 import { CompanySetupCard } from '@/components/company/CompanySetupCard';
-import { useRoutes, useDeleteRoute, useRoute } from '@/hooks/useRoutes';
+import { useRoutes, useDeleteRoute, useRoute, useUpdateRoute } from '@/hooks/useRoutes';
 import { useUserCompany } from '@/hooks/useCompany';
 
 const statusLabels: Record<string, string> = {
@@ -102,6 +103,7 @@ function RouteMenuActions({
   const [showDuplicate, setShowDuplicate] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [needDetail, setNeedDetail] = useState(false);
+  const updateRoute = useUpdateRoute();
 
   const { data: routeDetail } = useRoute(needDetail ? routeId : undefined);
 
@@ -109,7 +111,21 @@ function RouteMenuActions({
     s => s.status === 'failed' || s.status === 'skipped'
   ).length ?? 0;
 
+  const totalStops = routeDetail?.route_stops?.length ?? 0;
+  const allStopsFinished = totalStops > 0 && routeDetail?.route_stops?.every(
+    s => ['done', 'failed', 'skipped'].includes(s.status)
+  );
+
   const canResume = routeStatus === 'done' && failedCount > 0;
+  const canMarkDone = routeStatus === 'in_progress' && allStopsFinished;
+
+  const handleMarkDone = () => {
+    updateRoute.mutate({
+      id: routeId,
+      status: 'done',
+      completed_at: new Date().toISOString(),
+    });
+  };
 
   const partialRoute = {
     id: routeId,
@@ -143,6 +159,12 @@ function RouteMenuActions({
             <Copy className="mr-2 h-4 w-4" />
             Duplicar ruta
           </DropdownMenuItem>
+          {canMarkDone && (
+            <DropdownMenuItem onClick={handleMarkDone}>
+              <CheckCircle2 className="mr-2 h-4 w-4 text-[hsl(var(--status-active))]" />
+              Marcar como completada
+            </DropdownMenuItem>
+          )}
           {canResume && (
             <DropdownMenuItem onClick={() => setShowResume(true)}>
               <RotateCcw className="mr-2 h-4 w-4" />

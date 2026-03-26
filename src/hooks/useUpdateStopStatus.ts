@@ -39,7 +39,7 @@ export function useUpdateStopStatus() {
       const routeId = stopData.route_id;
       if (!routeId) return stopData;
 
-      // 3. Fetch current route data (status, company, driver, name)
+      // 3. Fetch current route data
       const { data: routeData } = await supabase
         .from('routes')
         .select('id, status, company_id, driver_id, name')
@@ -48,15 +48,18 @@ export function useUpdateStopStatus() {
 
       if (!routeData) return stopData;
 
+      let currentRouteStatus = routeData.status;
+
       // 4. If route was 'published' and driver touched a stop → move to 'in_progress'
       if (
-        routeData.status === 'published' &&
+        currentRouteStatus === 'published' &&
         (status === 'arrived' || status === 'done' || status === 'skipped' || status === 'failed')
       ) {
         await supabase
           .from('routes')
           .update({ status: 'in_progress', started_at: new Date().toISOString() })
           .eq('id', routeId);
+        currentRouteStatus = 'in_progress';
       }
 
       // 5. Fire delivery_failed alert immediately when a stop fails
@@ -80,39 +83,47 @@ export function useUpdateStopStatus() {
           .select('status')
           .eq('route_id', routeId);
 
-        const allFinished =
-          allStops &&
-          allStops.length > 0 &&
-          allStops.every(s => finalStatuses.includes(s.status));
+        const totalCount = allStops?.length ?? 0;
+        const finishedCount = allStops?.filter(s => finalStatuses.includes(s.status)).length ?? 0;
+        const allFinished = totalCount > 0 && finishedCount === totalCount;
 
-        if (allFinished && routeData.status !== 'done') {
+        console.log('Auto-close check:', { total: totalCount, finished: finishedCount, allFinished, currentRouteStatus });
+
+        if (allFinished && currentRouteStatus !== 'done') {
           // 7. Close the route
-          await supabase
+          const { error: closeError } = await supabase
             .from('routes')
             .update({ status: 'done', completed_at: new Date().toISOString() })
             .eq('id', routeId);
 
-          // 8. Fire route_completed alert with driver name and route name
-          if (routeData.company_id) {
-            // Fetch driver name for a richer alert message
-            const { data: driverProfile } = await supabase
-              .from('profiles')
-              .select('full_name')
-              .eq('id', routeData.driver_id ?? '')
-              .maybeSingle();
+          if (closeError) {
+            console.error('Auto-close error:', closeError);
+          } else {
+            console.log('Route auto-closed successfully:', routeId);
 
-            const driverName = driverProfile?.full_name || 'El conductor';
-            const routeName = routeData.name || 'la ruta';
+            // 8. Fire route_completed alert
+            if (routeData.company_id) {
+              const { data: driverProfile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', routeData.driver_id ?? '')
+                .maybeSingle();
 
-            await supabase.from('route_alerts').insert({
-              company_id: routeData.company_id,
-              route_id: routeId,
-              driver_id: routeData.driver_id,
-              stop_id: null,
-              type: 'route_completed',
-              message: `✅ ${driverName} completó la ruta "${routeName}"`,
-              is_read: false,
-            });
+              const driverName = driverProfile?.full_name || 'El conductor';
+              const routeName = routeData.name || 'la ruta';
+
+              await supabase.from('route_alerts').insert({
+                company_id: routeData.company_id,
+                route_id: routeId,
+                driver_id: routeData.driver_id,
+                stop_id: null,
+                type: 'route_completed',
+                message: `✅ ${driverName} completó la ruta "${routeName}"`,
+                is_read: false,
+              });
+            }
+
+            toast({ title: '🎉 Ruta completada', description: 'Todas las paradas fueron finalizadas.' });
           }
         }
       }
@@ -121,6 +132,7 @@ export function useUpdateStopStatus() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['route', data.route_id] });
+      queryClient.invalidateQueries({ queryKey: ['routes'] });
       queryClient.invalidateQueries({ queryKey: ['driver-active-route'] });
       queryClient.invalidateQueries({ queryKey: ['active-routes'] });
       queryClient.invalidateQueries({ queryKey: ['route-alerts'] });

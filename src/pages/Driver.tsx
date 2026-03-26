@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { driverLogout } from '@/services/driverAuth';
 import {
   Play, Pause, Square, Signal, Clock, Truck, LogOut,
-  Navigation, AlertCircle, Loader2, RotateCcw
+  Navigation, AlertCircle, Loader2, RotateCcw, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -134,6 +134,10 @@ export default function Driver() {
   const completedStops = todayRoute?.stops?.filter(s => s.status === 'done').length ?? 0;
   const totalStops = todayRoute?.stops?.length ?? 0;
   const progressPercent = totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0;
+  const allStopsFinished = totalStops > 0 && todayRoute?.stops?.every(
+    s => ['done', 'failed', 'skipped'].includes(s.status)
+  );
+  const showManualFinish = allStopsFinished && todayRoute?.status === 'in_progress';
 
   const getTrackingBadge = () => {
     if (trackingStatus === 'active') return <Badge className="bg-[hsl(var(--status-active))] text-white text-xs">En Ruta</Badge>;
@@ -247,6 +251,17 @@ export default function Driver() {
               companyId={profile?.company_id || ''}
               onStopCompleted={() => refetchRoute()}
             />
+          )}
+
+          {/* Manual finish button when all stops are done but route didn't auto-close */}
+          {showManualFinish && (
+            <Button
+              className="w-full h-12 text-base gap-2 bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 text-white font-bold"
+              onClick={handleEndRoute}
+            >
+              <CheckCircle2 className="h-5 w-5" />
+              Finalizar Ruta
+            </Button>
           )}
 
           {!todayRoute && !routeLoading && (
