@@ -47,7 +47,7 @@ export function DriverRoutesList({ onSelectRoute }: DriverRoutesListProps) {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="max-h-[300px]">
+        <ScrollArea className="max-h-[180px]">
           <div className="p-4 space-y-2">
             {isLoading ? (
               <p className="text-center text-sm text-muted-foreground py-4">Cargando...</p>
