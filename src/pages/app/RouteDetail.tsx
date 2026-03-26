@@ -88,6 +88,7 @@ export default function RouteDetail() {
   const { data: route, isLoading, error } = useRoute(id);
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
+  const { data: company } = useUserCompany();
   const updateRoute = useUpdateRoute();
   
   const reactivateRoute = useReactivateRoute();
