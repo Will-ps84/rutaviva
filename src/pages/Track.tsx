@@ -137,7 +137,7 @@ export default function Track() {
           .single();
         if (companyData) setCompany(companyData as TrackingCompany);
 
-        // 5. Get latest driver location
+        // 5. Get latest driver location — use maybeSingle() to avoid 406 when no GPS yet
         if (routeData.driver_id) {
           const { data: locData } = await supabase
             .from('location_points')
@@ -145,7 +145,7 @@ export default function Track() {
             .eq('route_id', stopData.route_id)
             .order('recorded_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
           if (locData) setDriverLocation({ lat: Number(locData.lat), lng: Number(locData.lng), speed_mps: locData.speed_mps ? Number(locData.speed_mps) : null, recorded_at: locData.recorded_at });
         }
       }
