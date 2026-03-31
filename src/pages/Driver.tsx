@@ -187,8 +187,9 @@ export default function Driver() {
                 <Navigation className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                 <span className="text-sm font-medium truncate">{todayRoute.name}</span>
               </div>
-              <span className="text-xs text-muted-foreground flex-shrink-0 font-mono">
-                {completedStops}/{totalStops} ({progressPercent}%)
+              <span className="text-xs font-medium flex-shrink-0">
+                <span className="text-primary font-bold">{completedStops}</span>
+                <span className="text-muted-foreground"> de {totalStops} entregados</span>
               </span>
             </div>
             {totalStops > 0 && <Progress value={progressPercent} className="h-1.5" />}

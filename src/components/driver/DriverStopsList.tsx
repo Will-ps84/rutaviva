@@ -168,7 +168,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="outline"
                       onClick={() => handleArrived(originalStop.id)}
-                      className="border-primary text-primary min-h-[44px]"
+                      className="border-primary text-primary min-h-[48px]"
                     >
                       <Navigation className="h-4 w-4 mr-1" />
                       Llegué
@@ -177,7 +177,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                       size="sm"
                       variant={isNextStop ? 'default' : 'outline'}
                       onClick={() => handleAction(originalStop, 'done')}
-                      className={`min-h-[44px] flex-1 ${isNextStop ? 'bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90' : ''}`}
+                      className={`min-h-[48px] flex-1 ${isNextStop ? 'bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90' : ''}`}
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       Entregar
@@ -185,7 +185,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="outline"
                       onClick={() => handleAction(originalStop, 'skipped')}
-                      className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[44px]"
+                      className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[48px]"
                       title="Omitir"
                     >
                       <SkipForward className="h-4 w-4" />
@@ -193,7 +193,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="outline"
                       onClick={() => handleAction(originalStop, 'failed')}
-                      className="border-destructive text-destructive min-h-[44px]"
+                      className="border-destructive text-destructive min-h-[48px]"
                       title="No entregado"
                     >
                       <XCircle className="h-4 w-4" />
@@ -207,7 +207,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="default"
                       onClick={() => handleAction(originalStop, 'done')}
-                      className="bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1 min-h-[44px]"
+                      className="bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1 min-h-[48px]"
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       Entregar
@@ -215,7 +215,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="outline"
                       onClick={() => handleAction(originalStop, 'skipped')}
-                      className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[44px]"
+                      className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[48px]"
                       title="Omitir"
                     >
                       <SkipForward className="h-4 w-4" />
@@ -223,7 +223,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="outline"
                       onClick={() => handleAction(originalStop, 'failed')}
-                      className="border-destructive text-destructive min-h-[44px]"
+                      className="border-destructive text-destructive min-h-[48px]"
                       title="No entregado"
                     >
                       <XCircle className="h-4 w-4" />

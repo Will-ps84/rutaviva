@@ -113,25 +113,39 @@ export const ActiveRoutesList = memo(function ActiveRoutesList({
                     </div>
                   </div>
 
+                  {/* Pending stops indicator */}
+                  {route.total_stops > 0 && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      📦 {route.total_stops - route.completed_stops} pendientes de {route.total_stops}
+                    </div>
+                  )}
+
                   {/* Last Location */}
-                  {lastLocation && (
-                    <div className="mt-2 pt-2 border-t border-border/50 flex items-center justify-between text-xs">
+                  {lastLocation && (() => {
+                    const ageMin = (Date.now() - new Date(lastLocation.recorded_at).getTime()) / 60000;
+                    const isNoSignalAlert = ageMin > 15;
+                    return (
+                    <div className={`mt-2 pt-2 border-t flex items-center justify-between text-xs ${
+                      isNoSignalAlert ? 'border-destructive/50 bg-destructive/10 rounded px-2 py-1 -mx-1' : 'border-border/50'
+                    }`}>
                       <div className="flex items-center gap-1.5">
                         <div className={`w-2 h-2 rounded-full ${
-                          driverStatus === 'active' ? 'bg-status-active animate-pulse' :
-                          driverStatus === 'stopped' ? 'bg-status-warning' : 'bg-muted-foreground'
+                          driverStatus === 'active' ? 'bg-[hsl(var(--status-active))] animate-pulse' :
+                          isNoSignalAlert ? 'bg-destructive animate-pulse' :
+                          driverStatus === 'stopped' ? 'bg-[hsl(var(--status-warning))]' : 'bg-muted-foreground'
                         }`} />
                         <MapPin className="h-3 w-3 text-muted-foreground" />
                         <span className="text-muted-foreground">
                           {lastLocation.lat.toFixed(4)}, {lastLocation.lng.toFixed(4)}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
+                      <div className={`flex items-center gap-1 ${isNoSignalAlert ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                         <Clock className="h-3 w-3" />
-                        hace {formatTimeSince(lastLocation.recorded_at)}
+                        {isNoSignalAlert && '⚠ '}hace {formatTimeSince(lastLocation.recorded_at)}
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {!lastLocation && route.driver_id && (
                     <div className="mt-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
