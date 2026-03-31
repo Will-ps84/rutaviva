@@ -168,7 +168,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="outline"
                       onClick={() => handleArrived(originalStop.id)}
-                      className="border-primary text-primary min-h-[44px]"
+                      className="border-primary text-primary min-h-[48px]"
                     >
                       <Navigation className="h-4 w-4 mr-1" />
                       Llegué
