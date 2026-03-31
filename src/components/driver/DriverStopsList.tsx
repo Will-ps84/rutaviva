@@ -215,7 +215,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="outline"
                       onClick={() => handleAction(originalStop, 'skipped')}
-                      className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[44px]"
+                      className="border-[hsl(var(--status-warning))] text-[hsl(var(--status-warning))] min-h-[48px]"
                       title="Omitir"
                     >
                       <SkipForward className="h-4 w-4" />
@@ -223,7 +223,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="outline"
                       onClick={() => handleAction(originalStop, 'failed')}
-                      className="border-destructive text-destructive min-h-[44px]"
+                      className="border-destructive text-destructive min-h-[48px]"
                       title="No entregado"
                     >
                       <XCircle className="h-4 w-4" />

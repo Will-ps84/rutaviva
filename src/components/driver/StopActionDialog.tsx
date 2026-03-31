@@ -67,10 +67,14 @@ export function StopActionDialog({
               evidenceFile: file || undefined,
             },
             {
-              onSuccess: () => {
+              onSuccess: async () => {
                 setNote(''); setFile(null);
                 onOpenChange(false);
                 onCompleted?.();
+                if (action === 'done') {
+                  const { toast } = await import('@/hooks/use-toast');
+                  toast({ title: '✅ ¡Entrega confirmada!', description: `Parada #${stop.seq} completada exitosamente.` });
+                }
               },
             }
           );
