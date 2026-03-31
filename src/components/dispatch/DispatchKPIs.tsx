@@ -73,7 +73,7 @@ export const DispatchKPIs = memo(function DispatchKPIs({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{noSignal}</div>
-          <p className="text-xs text-muted-foreground">más de 5 min</p>
+          <p className="text-xs text-muted-foreground">más de 5 min sin GPS</p>
         </CardContent>
       </Card>
     </div>

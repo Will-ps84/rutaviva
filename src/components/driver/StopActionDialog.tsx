@@ -44,7 +44,7 @@ export function StopActionDialog({
 
   const cfg = actionConfig[action];
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!stop) return;
     if (action === 'failed' && !note.trim()) {
       return; // require reason for failed
