@@ -207,7 +207,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                     <Button
                       size="sm" variant="default"
                       onClick={() => handleAction(originalStop, 'done')}
-                      className="bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1 min-h-[44px]"
+                      className="bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90 flex-1 min-h-[48px]"
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       Entregar
