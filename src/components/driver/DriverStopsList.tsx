@@ -177,7 +177,7 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                       size="sm"
                       variant={isNextStop ? 'default' : 'outline'}
                       onClick={() => handleAction(originalStop, 'done')}
-                      className={`min-h-[44px] flex-1 ${isNextStop ? 'bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90' : ''}`}
+                      className={`min-h-[48px] flex-1 ${isNextStop ? 'bg-[hsl(var(--status-active))] hover:bg-[hsl(var(--status-active))]/90' : ''}`}
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
                       Entregar
