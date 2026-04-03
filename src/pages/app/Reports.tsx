@@ -131,6 +131,7 @@ export default function Reports() {
     setDateTo(today);
     setDriverId('all');
     setVehicleId('all');
+    setZone('all');
   };
 
   const rangeLabel = dateFrom.toDateString() === dateTo.toDateString()
