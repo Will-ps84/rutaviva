@@ -313,6 +313,8 @@ export type Database = {
           seq: number
           status: Database["public"]["Enums"]["stop_status"]
           tracking_token: string | null
+          weight_kg: number | null
+          zone: string | null
         }
         Insert: {
           address_text: string
@@ -332,6 +334,8 @@ export type Database = {
           seq: number
           status?: Database["public"]["Enums"]["stop_status"]
           tracking_token?: string | null
+          weight_kg?: number | null
+          zone?: string | null
         }
         Update: {
           address_text?: string
@@ -351,6 +355,8 @@ export type Database = {
           seq?: number
           status?: Database["public"]["Enums"]["stop_status"]
           tracking_token?: string | null
+          weight_kg?: number | null
+          zone?: string | null
         }
         Relationships: [
           {
@@ -366,8 +372,10 @@ export type Database = {
         Row: {
           company_id: string
           completed_at: string | null
+          cost_per_km: number | null
           created_at: string
           date: string
+          distance_km: number | null
           driver_id: string | null
           id: string
           name: string
@@ -380,8 +388,10 @@ export type Database = {
         Insert: {
           company_id: string
           completed_at?: string | null
+          cost_per_km?: number | null
           created_at?: string
           date?: string
+          distance_km?: number | null
           driver_id?: string | null
           id?: string
           name: string
@@ -394,8 +404,10 @@ export type Database = {
         Update: {
           company_id?: string
           completed_at?: string | null
+          cost_per_km?: number | null
           created_at?: string
           date?: string
+          distance_km?: number | null
           driver_id?: string | null
           id?: string
           name?: string
