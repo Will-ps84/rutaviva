@@ -380,6 +380,9 @@ export default function Reports() {
           <TabsTrigger value="tracking" className="gap-1.5" onClick={() => setTrackingEnabled(true)}>
             <MapPin className="h-4 w-4" /> Tracking
           </TabsTrigger>
+          <TabsTrigger value="dashboard" className="gap-1.5">
+            <BarChart3 className="h-4 w-4" /> Dashboard Operativo
+          </TabsTrigger>
         </TabsList>
 
         {/* ── DAILY SUMMARY ── */}
