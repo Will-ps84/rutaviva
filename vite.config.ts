@@ -84,6 +84,6 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1000,
   },
   optimizeDeps: {
-    include: ["react", "react-dom", "mapbox-gl"],
+    include: ["react", "react-dom", "mapbox-gl", "recharts"],
   },
 }));
