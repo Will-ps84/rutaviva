@@ -320,6 +320,22 @@ export default function Reports() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Zone filter */}
+            <div className="space-y-1.5">
+              <Label>Zona</Label>
+              <Select value={zone} onValueChange={setZone}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {ZONE_OPTIONS.map(z => (
+                    <SelectItem key={z} value={z}>{z}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mt-4">
