@@ -71,16 +71,19 @@ export default function Reports() {
   const [driverId, setDriverId] = useState('all');
   const [vehicleId, setVehicleId] = useState('all');
   const [trackingEnabled, setTrackingEnabled] = useState(false);
+  const [zone, setZone] = useState('all');
 
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
+  const { data: company } = useUserCompany();
 
   const filters: ReportFilters = useMemo(() => ({
     dateFrom: format(dateFrom, 'yyyy-MM-dd'),
     dateTo: format(dateTo, 'yyyy-MM-dd'),
     driverId,
     vehicleId,
-  }), [dateFrom, dateTo, driverId, vehicleId]);
+    zone,
+  }), [dateFrom, dateTo, driverId, vehicleId, zone]);
 
   const { data: summary, isLoading: loadingSummary } = useDailySummary(filters);
   const { data: routeReports, isLoading: loadingRoutes } = useRouteReports(filters);
