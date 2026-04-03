@@ -8,6 +8,7 @@ export interface ReportFilters {
   dateTo: string;   // yyyy-MM-dd
   driverId?: string; // 'all' or uuid
   vehicleId?: string; // 'all' or uuid
+  zone?: string; // 'all' or zone name
 }
 
 export interface DailySummary {

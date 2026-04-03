@@ -38,6 +38,7 @@ import {
   Clock,
   Filter,
   MapPin,
+  BarChart3,
 } from 'lucide-react';
 import {
   useDailySummary,
@@ -52,6 +53,9 @@ import { exportToPDF } from '@/lib/exportPDF';
 import { exportToCsv } from '@/lib/exportCsv';
 import { useTrackingData } from '@/hooks/useTrackingExport';
 import { useUserCompany } from '@/hooks/useCompany';
+import DashboardOperativo from '@/components/reports/DashboardOperativo';
+
+const ZONE_OPTIONS = ['Lima Norte', 'Lima Sur', 'Lima Este', 'Lima Moderna', 'Callao', 'Provincias'];
 
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
@@ -67,16 +71,19 @@ export default function Reports() {
   const [driverId, setDriverId] = useState('all');
   const [vehicleId, setVehicleId] = useState('all');
   const [trackingEnabled, setTrackingEnabled] = useState(false);
+  const [zone, setZone] = useState('all');
 
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
+  const { data: company } = useUserCompany();
 
   const filters: ReportFilters = useMemo(() => ({
     dateFrom: format(dateFrom, 'yyyy-MM-dd'),
     dateTo: format(dateTo, 'yyyy-MM-dd'),
     driverId,
     vehicleId,
-  }), [dateFrom, dateTo, driverId, vehicleId]);
+    zone,
+  }), [dateFrom, dateTo, driverId, vehicleId, zone]);
 
   const { data: summary, isLoading: loadingSummary } = useDailySummary(filters);
   const { data: routeReports, isLoading: loadingRoutes } = useRouteReports(filters);
@@ -124,6 +131,7 @@ export default function Reports() {
     setDateTo(today);
     setDriverId('all');
     setVehicleId('all');
+    setZone('all');
   };
 
   const rangeLabel = dateFrom.toDateString() === dateTo.toDateString()
@@ -312,6 +320,22 @@ export default function Reports() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Zone filter */}
+            <div className="space-y-1.5">
+              <Label>Zona</Label>
+              <Select value={zone} onValueChange={setZone}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {ZONE_OPTIONS.map(z => (
+                    <SelectItem key={z} value={z}>{z}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mt-4">
@@ -355,6 +379,9 @@ export default function Reports() {
           </TabsTrigger>
           <TabsTrigger value="tracking" className="gap-1.5" onClick={() => setTrackingEnabled(true)}>
             <MapPin className="h-4 w-4" /> Tracking
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="gap-1.5">
+            <BarChart3 className="h-4 w-4" /> Dashboard Operativo
           </TabsTrigger>
         </TabsList>
 
@@ -587,6 +614,11 @@ export default function Reports() {
           ) : (
             <p className="text-muted-foreground text-sm">Sin datos de tracking para el rango seleccionado.</p>
           )}
+        </TabsContent>
+
+        {/* ── DASHBOARD OPERATIVO ── */}
+        <TabsContent value="dashboard">
+          <DashboardOperativo filters={filters} companyName={company?.name} />
         </TabsContent>
       </Tabs>
     </div>
