@@ -22,9 +22,9 @@ function completionColor(pct: number) {
 }
 
 function occupancyBadge(pct: number) {
-  if (pct > 85) return <Badge className="bg-red-100 text-red-700 text-[10px]">⚠️ Casi lleno</Badge>;
-  if (pct >= 60) return <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">✅ Óptimo</Badge>;
-  return <Badge className="bg-amber-100 text-amber-700 text-[10px]">📉 Subutilizado</Badge>;
+  if (pct > 85) return <Badge className="bg-destructive/10 text-destructive text-[10px]">⚠️ Casi lleno</Badge>;
+  if (pct >= 60) return <Badge className="bg-primary/10 text-primary text-[10px]">✅ Óptimo</Badge>;
+  return <Badge className="bg-accent text-accent-foreground text-[10px]">📉 Subutilizado</Badge>;
 }
 
 function formatWeight(kg: number) {
