@@ -615,6 +615,11 @@ export default function Reports() {
             <p className="text-muted-foreground text-sm">Sin datos de tracking para el rango seleccionado.</p>
           )}
         </TabsContent>
+
+        {/* ── DASHBOARD OPERATIVO ── */}
+        <TabsContent value="dashboard">
+          <DashboardOperativo filters={filters} companyName={company?.name} />
+        </TabsContent>
       </Tabs>
     </div>
   );
