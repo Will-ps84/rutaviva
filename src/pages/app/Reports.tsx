@@ -53,6 +53,9 @@ import { exportToPDF } from '@/lib/exportPDF';
 import { exportToCsv } from '@/lib/exportCsv';
 import { useTrackingData } from '@/hooks/useTrackingExport';
 import { useUserCompany } from '@/hooks/useCompany';
+import DashboardOperativo from '@/components/reports/DashboardOperativo';
+
+const ZONE_OPTIONS = ['Lima Norte', 'Lima Sur', 'Lima Este', 'Lima Moderna', 'Callao', 'Provincias'];
 
 const statusLabels: Record<string, string> = {
   draft: 'Borrador',
