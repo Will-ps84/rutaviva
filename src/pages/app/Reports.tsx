@@ -38,6 +38,7 @@ import {
   Clock,
   Filter,
   MapPin,
+  BarChart3,
 } from 'lucide-react';
 import {
   useDailySummary,
