@@ -42,6 +42,7 @@ export async function driverLogin(phone: string, password: string): Promise<Driv
     headers: {
       'Content-Type': 'application/json',
       'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
     },
     body: JSON.stringify({ phone, password }),
   });
@@ -73,6 +74,7 @@ export async function activateDriver(phone: string, code: string, new_password: 
     headers: {
       'Content-Type': 'application/json',
       'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
     },
     body: JSON.stringify({ phone, code, new_password }),
   });
