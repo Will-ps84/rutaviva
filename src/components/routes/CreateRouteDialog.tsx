@@ -247,12 +247,16 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
     reader.onload = (event) => {
       const text = event.target?.result as string;
       const lines = text.split('\n').filter(line => line.trim());
-      setEntries(lines.map(line => ({
-        address: line.trim(),
-        lat: null,
-        lng: null,
-        geocoding: 'idle' as const,
-      })));
+      // Skip header row if first cell looks like a column name
+      const firstCell = lines[0]?.split(',')[0]?.trim().toLowerCase() ?? '';
+      const hasHeader = ['direccion', 'address', 'dirección', 'dir'].includes(firstCell);
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+      setEntries(dataLines.map(line => {
+        // Extract first CSV column as address
+        const cols = line.split(',');
+        const address = cols[0]?.trim() ?? line.trim();
+        return { address, lat: null, lng: null, geocoding: 'idle' as const };
+      }));
       setOptimizationSavingKm(null);
     };
     reader.readAsText(file);
