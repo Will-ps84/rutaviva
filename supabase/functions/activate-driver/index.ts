@@ -26,18 +26,8 @@ serve(async (req: Request) => {
       });
     }
 
-    const PASSWORD_MIN_LENGTH = 10;
-    const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()\-_=+[\]{};:'",.<>/?\\|`~])[A-Za-z\d@$!%*?&#^()\-_=+[\]{};:'",.<>/?\\|`~]{10,}$/;
-
-    if (typeof new_password !== "string" || new_password.length < PASSWORD_MIN_LENGTH) {
-      return new Response(JSON.stringify({ error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!PASSWORD_REGEX.test(new_password)) {
-      return new Response(JSON.stringify({ error: "La contraseña debe contener mayúsculas, minúsculas, un número y un carácter especial" }), {
+    if (typeof new_password !== "string" || new_password.length < 6) {
+      return new Response(JSON.stringify({ error: "La contraseña debe tener al menos 6 caracteres" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -56,7 +46,7 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (activationError || !activation) {
-      return new Response(JSON.stringify({ error: "Invalid or expired activation code" }), {
+      return new Response(JSON.stringify({ error: "Código inválido, ya usado, o expirado" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -70,7 +60,7 @@ serve(async (req: Request) => {
       .single();
 
     if (!profile || profile.phone !== cleanPhone) {
-      return new Response(JSON.stringify({ error: "Phone does not match" }), {
+      return new Response(JSON.stringify({ error: `Teléfono no coincide. Guardado: ${profile?.phone ?? 'ninguno'}` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

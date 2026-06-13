@@ -99,10 +99,10 @@ export default function DriverActivate() {
                     <Input
                       id="activate-password"
                       type="password"
-                      placeholder="Mín. 10 chars, mayús., núm. y símbolo"
+                      placeholder="Mínimo 6 caracteres"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      minLength={10}
+                      minLength={6}
                       required
                     />
                   </div>
