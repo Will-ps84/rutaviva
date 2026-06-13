@@ -11,6 +11,36 @@ interface UpdateStopStatusParams {
 
 const FINAL_STATUSES = ['done', 'failed', 'skipped'];
 
+async function triggerNotification(payload: {
+  event: 'driver_en_camino' | 'entrega_completada' | 'entrega_fallida';
+  recipientPhone: string;
+  recipientName?: string | null;
+  driverName?: string | null;
+  stopAddress?: string | null;
+  trackingToken?: string | null;
+  failureReason?: string | null;
+}) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    await supabase.functions.invoke('send-notification', {
+      body: {
+        event: payload.event,
+        recipientPhone: payload.recipientPhone,
+        recipientName: payload.recipientName ?? undefined,
+        driverName: payload.driverName ?? undefined,
+        stopAddress: payload.stopAddress ?? undefined,
+        trackingToken: payload.trackingToken ?? undefined,
+        failureReason: payload.failureReason ?? undefined,
+        channel: 'whatsapp',
+      },
+    });
+  } catch {
+    // Notificaciones son best-effort: no bloquear el flujo principal si fallan
+  }
+}
+
 export function useUpdateStopStatus() {
   const queryClient = useQueryClient();
 
@@ -29,7 +59,7 @@ export function useUpdateStopStatus() {
         .from('route_stops')
         .update(updates)
         .eq('id', stopId)
-        .select('id, route_id, status')
+        .select('id, route_id, status, recipient_name, recipient_phone, address_text, tracking_token')
         .single();
 
       if (stopError) throw stopError;
@@ -52,6 +82,17 @@ export function useUpdateStopStatus() {
         return stopData;
       }
 
+      // Obtener nombre del conductor para las notificaciones
+      let driverName: string | null = null;
+      if (routeData.driver_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', routeData.driver_id)
+          .single();
+        driverName = profile?.full_name ?? null;
+      }
+
       // Si la ruta estaba 'published' y el conductor tocó una parada → 'in_progress'
       if (
         routeData.status === 'published' &&
@@ -63,17 +104,54 @@ export function useUpdateStopStatus() {
           .eq('id', routeId);
       }
 
-      // Alerta de entrega fallida
-      if (status === 'failed' && routeData.company_id) {
-        await supabase.from('route_alerts').insert({
-          company_id: routeData.company_id,
-          route_id: routeId,
-          driver_id: routeData.driver_id,
-          stop_id: stopId,
-          type: 'delivery_failed',
-          message: `❌ Entrega fallida${failure_reason ? `: ${failure_reason}` : ''}`,
-          is_read: false,
+      // ── NOTIFICACIÓN: conductor en camino (arrived) ──
+      if (status === 'arrived' && stopData.recipient_phone) {
+        triggerNotification({
+          event: 'driver_en_camino',
+          recipientPhone: stopData.recipient_phone,
+          recipientName: stopData.recipient_name,
+          driverName,
+          stopAddress: stopData.address_text,
+          trackingToken: stopData.tracking_token,
         });
+      }
+
+      // ── NOTIFICACIÓN: entrega completada (done) ──
+      if (status === 'done' && stopData.recipient_phone) {
+        triggerNotification({
+          event: 'entrega_completada',
+          recipientPhone: stopData.recipient_phone,
+          recipientName: stopData.recipient_name,
+          stopAddress: stopData.address_text,
+          trackingToken: stopData.tracking_token,
+        });
+      }
+
+      // ── NOTIFICACIÓN: entrega fallida ──
+      if (status === 'failed') {
+        // Alerta interna al dispatcher
+        if (routeData.company_id) {
+          await supabase.from('route_alerts').insert({
+            company_id: routeData.company_id,
+            route_id: routeId,
+            driver_id: routeData.driver_id,
+            stop_id: stopId,
+            type: 'delivery_failed',
+            message: `❌ Entrega fallida${failure_reason ? `: ${failure_reason}` : ''}`,
+            is_read: false,
+          });
+        }
+
+        // Notificación WhatsApp al destinatario
+        if (stopData.recipient_phone) {
+          triggerNotification({
+            event: 'entrega_fallida',
+            recipientPhone: stopData.recipient_phone,
+            recipientName: stopData.recipient_name,
+            stopAddress: stopData.address_text,
+            failureReason: failure_reason,
+          });
+        }
       }
 
       // ── PASO 3: Verificar si TODAS las paradas están finalizadas ──
@@ -87,14 +165,6 @@ export function useUpdateStopStatus() {
 
         const allFinished = allStops.every(s => FINAL_STATUSES.includes(s.status));
 
-        console.log('Auto-close check:', {
-          routeId,
-          total: allStops.length,
-          finished: allStops.filter(s => FINAL_STATUSES.includes(s.status)).length,
-          allFinished,
-          routeStatus: routeData.status,
-        });
-
         // ── PASO 4: Cerrar la ruta si todas finalizaron ──
         if (allFinished) {
           const { error: closeError } = await supabase
@@ -105,9 +175,6 @@ export function useUpdateStopStatus() {
           if (closeError) {
             console.error('Auto-close error:', closeError);
           } else {
-            console.log('Route auto-closed successfully:', routeId);
-
-            // Alerta de ruta completada
             if (routeData.company_id) {
               await supabase.from('route_alerts').insert({
                 company_id: routeData.company_id,

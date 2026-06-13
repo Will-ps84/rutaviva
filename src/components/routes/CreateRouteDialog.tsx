@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Upload, Loader2, CheckCircle, AlertCircle, RotateCcw, Plus, Trash2 } from 'lucide-react';
+import { CalendarIcon, Upload, Loader2, CheckCircle, AlertCircle, RotateCcw, Plus, Trash2, Zap, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,9 +22,15 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { useCreateRoute, useCreateRouteStops } from '@/hooks/useRoutes';
 import { useUserCompany } from '@/hooks/useCompany';
 import { geocodeAddress, geocodeSuggestions, type GeocodingSuggestion } from '@/services/geocoding';
+import {
+  optimizeStopOrder,
+  calculateRouteDistanceKm,
+  type StopCoordinate,
+} from '@/services/routeOptimization';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -138,16 +144,20 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
   const { data: company } = useUserCompany();
   const createRoute = useCreateRoute();
   const createStops = useCreateRouteStops();
-  
+
   const [name, setName] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [entries, setEntries] = useState<AddressEntry[]>([createEmptyEntry()]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationSavingKm, setOptimizationSavingKm] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState('');
 
   const updateEntry = useCallback((index: number, patch: Partial<AddressEntry>) => {
     setEntries(prev => prev.map((e, i) => i === index ? { ...e, ...patch } : e));
+    // Limpiar el ahorro calculado si el usuario modifica las paradas
+    setOptimizationSavingKm(null);
   }, []);
 
   const handleGeocode = async (index: number) => {
@@ -159,16 +169,12 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
     const result = await geocodeAddress(addr);
 
     if (result) {
-      updateEntry(index, {
-        lat: result.lat,
-        lng: result.lng,
-        geocoding: 'success',
-      });
+      updateEntry(index, { lat: result.lat, lng: result.lng, geocoding: 'success' });
     } else {
       updateEntry(index, { geocoding: 'failed', lat: null, lng: null });
       toast({
         title: 'Dirección no encontrada',
-        description: 'Intenta con más detalle, ej: "Av. Larco 1301, Miraflores, Lima". También puedes ingresar coordenadas manualmente.',
+        description: 'Intenta con más detalle, ej: "Av. Larco 1301, Miraflores, Lima".',
         variant: 'destructive',
       });
     }
@@ -182,18 +188,61 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
     }
   };
 
+  const geocodedEntries = entries.filter(e => e.geocoding === 'success' && e.lat && e.lng);
+  const canOptimize = geocodedEntries.length >= 2 && !isOptimizing && !isSaving;
+
+  const handleOptimize = async () => {
+    if (!canOptimize) return;
+
+    setIsOptimizing(true);
+    setOptimizationSavingKm(null);
+
+    try {
+      const stopsForOsrm: StopCoordinate[] = entries
+        .map((e, i) => ({ index: i, lat: e.lat!, lng: e.lng!, address_text: e.address }))
+        .filter(s => s.lat != null && s.lng != null);
+
+      const distanceBefore = calculateRouteDistanceKm(stopsForOsrm);
+      const result = await optimizeStopOrder(stopsForOsrm, { fixedStart: true });
+
+      // Reordenar entries según el orden optimizado
+      setEntries(prev => {
+        const reordered = result.optimizedOrder.map(origIdx => prev[origIdx]);
+        return reordered;
+      });
+
+      const savingKm = distanceBefore - result.totalDistanceKm;
+      setOptimizationSavingKm(savingKm);
+
+      toast({
+        title: '¡Ruta optimizada!',
+        description: `Ahorro estimado: ${savingKm.toFixed(1)} km · Distancia total: ${result.totalDistanceKm.toFixed(1)} km · Tiempo: ~${Math.round(result.totalDurationMin)} min`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Error al optimizar',
+        description: err instanceof Error ? err.message : 'Error desconocido',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
   const addEntry = () => {
     setEntries(prev => [...prev, createEmptyEntry()]);
+    setOptimizationSavingKm(null);
   };
 
   const removeEntry = (index: number) => {
     setEntries(prev => prev.filter((_, i) => i !== index));
+    setOptimizationSavingKm(null);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
@@ -204,6 +253,7 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
         lng: null,
         geocoding: 'idle' as const,
       })));
+      setOptimizationSavingKm(null);
     };
     reader.readAsText(file);
   };
@@ -228,7 +278,7 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
     if (invalidStops.length > 0) {
       toast({
         title: 'Coordenadas faltantes',
-        description: `${invalidStops.length} parada(s) sin coordenadas válidas. Geocodifica o ingresa coordenadas manualmente.`,
+        description: `${invalidStops.length} parada(s) sin coordenadas válidas.`,
         variant: 'destructive',
       });
       return;
@@ -268,6 +318,7 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
       setName('');
       setDate(new Date());
       setEntries([createEmptyEntry()]);
+      setOptimizationSavingKm(null);
       onOpenChange(false);
       navigate(`/app/routes/${route.id}`);
     } catch (error) {
@@ -326,7 +377,26 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
                 {failedCount > 0 && <span className="text-destructive"> · {failedCount} fallidas</span>}
               </p>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap justify-end">
+              {/* Botón Optimizar */}
+              <Button
+                variant={optimizationSavingKm !== null ? 'default' : 'outline'}
+                size="sm"
+                onClick={handleOptimize}
+                disabled={!canOptimize}
+                className={cn(
+                  optimizationSavingKm !== null && 'bg-green-600 hover:bg-green-700 text-white'
+                )}
+              >
+                {isOptimizing ? (
+                  <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />Optimizando...</>
+                ) : optimizationSavingKm !== null ? (
+                  <><CheckCircle className="mr-1 h-3.5 w-3.5" />Ahorro: {optimizationSavingKm.toFixed(1)} km</>
+                ) : (
+                  <><Zap className="mr-1 h-3.5 w-3.5" />Optimizar orden</>
+                )}
+              </Button>
+
               <Button variant="ghost" size="sm" onClick={handleGeocodeAll} disabled={isSaving || isGeocoding}>
                 <RotateCcw className="mr-1 h-3.5 w-3.5" />
                 Re-geocodificar
@@ -340,13 +410,25 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
             </div>
           </div>
 
+          {/* Optimización tip */}
+          {geocodedCount >= 2 && optimizationSavingKm === null && !isOptimizing && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+              <Zap className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+              <span>
+                Tienes {geocodedCount} paradas listas. Usa <strong>Optimizar orden</strong> para minimizar la distancia total del recorrido.
+              </span>
+            </div>
+          )}
+
           {/* Address entries */}
-          <ScrollArea className="flex-1 max-h-[320px] pr-3">
+          <ScrollArea className="flex-1 max-h-[280px] pr-3">
             <div className="space-y-2">
               {entries.map((entry, idx) => (
                 <div key={idx} className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-muted-foreground w-5 text-right shrink-0">{idx + 1}</span>
+                    <span className="text-xs font-medium text-muted-foreground w-5 text-right shrink-0 flex items-center justify-end gap-0.5">
+                      {idx + 1}
+                    </span>
                     <AddressAutocomplete
                       entry={entry}
                       index={idx}
@@ -414,7 +496,10 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={isSaving || isGeocoding}>
-            {isSaving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Procesando...</>) : 'Crear Ruta'}
+            {isSaving
+              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Procesando...</>
+              : <><ArrowRight className="mr-2 h-4 w-4" />Crear Ruta</>
+            }
           </Button>
         </DialogFooter>
       </DialogContent>

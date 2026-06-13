@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  ArrowLeft, 
-  MapPin, 
+import {
+  ArrowLeft,
+  MapPin,
   Send,
   Loader2,
   Truck,
@@ -12,7 +12,11 @@ import {
   AlertCircle,
   MessageCircle,
   Copy,
+  Zap,
+  CheckCircle,
 } from 'lucide-react';
+import { optimizeStopOrder, calculateRouteDistanceKm, type StopCoordinate } from '@/services/routeOptimization';
+import { useReorderStops } from '@/hooks/useReorderStops';
 import { EditStopDialog } from '@/components/routes/EditStopDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,6 +99,35 @@ export default function RouteDetail() {
   
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showReactivateDialog, setShowReactivateDialog] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationSavingKm, setOptimizationSavingKm] = useState<number | null>(null);
+
+  const reorderStops = useReorderStops(id ?? '');
+
+  const handleOptimize = async () => {
+    if (!stops.length || isOptimizing) return;
+    const geocoded = stops.filter(s => s.lat && s.lng);
+    if (geocoded.length < 2) {
+      toast({ title: 'Sin suficientes paradas', description: 'Se necesitan al menos 2 paradas con coordenadas.', variant: 'destructive' });
+      return;
+    }
+    setIsOptimizing(true);
+    setOptimizationSavingKm(null);
+    try {
+      const coords: StopCoordinate[] = stops.map((s, i) => ({ index: i, lat: s.lat!, lng: s.lng!, address_text: s.address_text })).filter(c => c.lat);
+      const distBefore = calculateRouteDistanceKm(coords);
+      const result = await optimizeStopOrder(coords, { fixedStart: true });
+      const saving = distBefore - result.totalDistanceKm;
+      setOptimizationSavingKm(saving);
+      const orderedIds = result.optimizedOrder.map(origIdx => stops[origIdx].id);
+      await reorderStops.mutateAsync(orderedIds);
+      toast({ title: '¡Ruta optimizada!', description: `Ahorro: ${saving.toFixed(1)} km · Total: ${result.totalDistanceKm.toFixed(1)} km · ~${Math.round(result.totalDurationMin)} min` });
+    } catch (err) {
+      toast({ title: 'Error al optimizar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
   
   const handleDriverChange = (driverId: string) => {
     if (!id) return;
@@ -348,9 +381,28 @@ export default function RouteDetail() {
         {/* Stops Table */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">
-              Paradas ({stops.length})
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium">
+                Paradas ({stops.length})
+              </CardTitle>
+              {route.status === 'draft' && stops.filter(s => s.lat && s.lng).length >= 2 && (
+                <Button
+                  size="sm"
+                  variant={optimizationSavingKm !== null ? 'default' : 'outline'}
+                  onClick={handleOptimize}
+                  disabled={isOptimizing || reorderStops.isPending}
+                  className={optimizationSavingKm !== null ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+                >
+                  {isOptimizing || reorderStops.isPending ? (
+                    <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />Optimizando...</>
+                  ) : optimizationSavingKm !== null ? (
+                    <><CheckCircle className="mr-1 h-3.5 w-3.5" />Ahorro: {optimizationSavingKm.toFixed(1)} km</>
+                  ) : (
+                    <><Zap className="mr-1 h-3.5 w-3.5" />Optimizar orden</>
+                  )}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="max-h-[500px] overflow-auto">

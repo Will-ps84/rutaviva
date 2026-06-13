@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (never commit credentials)
+.env
+.env.local
+.env.production
+
+# Supabase temp
+supabase/.temp/
+
+# Schema dump (generated file)
+rutaviva_full_schema.sql
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

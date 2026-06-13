@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RutaViva Conductor</string>
+    <string name="title_activity_main">RutaViva Conductor</string>
+    <string name="package_name">com.rutaviva.conductor</string>
+    <string name="custom_url_scheme">com.rutaviva.conductor</string>
+
+    <!-- Foreground Service GPS notification -->
+    <string name="geolocation_channel_name">Tracking de Ruta</string>
+    <string name="geolocation_channel_description">Mantiene activo el GPS mientras realizas entregas</string>
+    <string name="geolocation_notification_title">RutaViva activo</string>
+    <string name="geolocation_notification_text">Tracking de ruta en progreso</string>
+</resources>
