@@ -14,10 +14,18 @@ interface DriverLocation {
   route_id: string | null;
 }
 
+interface StopPin {
+  lat: number;
+  lng: number;
+  label: string;
+  status: string;
+}
+
 interface RealtimeMapViewProps {
   drivers: DriverLocation[];
   className?: string;
   centerOn?: { lat: number; lng: number };
+  stops?: StopPin[];
 }
 
 // Calculate status based on age
@@ -35,10 +43,11 @@ const statusColors = {
   noSignal: '#6b7280',  // gray
 };
 
-export function RealtimeMapView({ drivers, className = '', centerOn }: RealtimeMapViewProps) {
+export function RealtimeMapView({ drivers, className = '', centerOn, stops = [] }: RealtimeMapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const stopMarkers = useRef<mapboxgl.Marker[]>([]);
 
   // Initialize map
   useEffect(() => {
@@ -58,6 +67,8 @@ export function RealtimeMapView({ drivers, className = '', centerOn }: RealtimeM
     return () => {
       markers.current.forEach((marker) => marker.remove());
       markers.current.clear();
+      stopMarkers.current.forEach(m => m.remove());
+      stopMarkers.current = [];
       map.current?.remove();
       map.current = null;
     };
@@ -167,6 +178,32 @@ export function RealtimeMapView({ drivers, className = '', centerOn }: RealtimeM
       }
     }
   }, [drivers, centerOn]);
+
+  // Render stop pins
+  useEffect(() => {
+    if (!map.current) return;
+    stopMarkers.current.forEach(m => m.remove());
+    stopMarkers.current = [];
+
+    const stopColors: Record<string, string> = { done: '#22c55e', failed: '#ef4444', skipped: '#eab308', pending: '#6b7280', arrived: '#3b82f6' };
+
+    stops.forEach((stop, i) => {
+      const el = document.createElement('div');
+      el.innerHTML = `<div style="background:${stopColors[stop.status] ?? '#6b7280'};color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)">${i + 1}</div>`;
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([stop.lng, stop.lat])
+        .setPopup(new mapboxgl.Popup({ offset: 18 }).setHTML(`<strong>${i + 1}. ${stop.label}</strong>`))
+        .addTo(map.current!);
+      stopMarkers.current.push(marker);
+    });
+
+    // Fit to stops when no drivers
+    if (stops.length > 0 && drivers.length === 0) {
+      const bounds = new mapboxgl.LngLatBounds();
+      stops.forEach(s => bounds.extend([s.lng, s.lat]));
+      map.current.fitBounds(bounds, { padding: 60, maxZoom: 14 });
+    }
+  }, [stops, drivers.length]);
 
   // Handle centerOn changes
   useEffect(() => {

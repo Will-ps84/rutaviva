@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Building2, Users, Shield, UserCheck, UserX, Loader2, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Building2, Users, Shield, UserCheck, UserX, Loader2, Trash2, Eye, EyeOff, Pencil, Check } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -137,6 +139,64 @@ export default function CompanyPage() {
     }
   };
 
+function CompanySettingsCard({ company }: { company: any }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const qc = useQueryClient();
+
+  const update = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('companies').update({ name: name.trim() }).eq('id', company.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['user-company'] });
+      setEditing(false);
+      toast({ title: 'Empresa actualizada' });
+    },
+    onError: (e: Error) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  if (!company) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4" /> Datos de la empresa</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Label className="text-xs text-muted-foreground">Nombre</Label>
+            {editing ? (
+              <Input value={name} onChange={e => setName(e.target.value)} className="mt-1" autoFocus />
+            ) : (
+              <p className="font-medium mt-1">{company.name}</p>
+            )}
+          </div>
+          {editing ? (
+            <div className="flex gap-2 mt-4">
+              <Button size="sm" onClick={() => update.mutate()} disabled={update.isPending || !name.trim()}>
+                {update.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
+            </div>
+          ) : (
+            <Button size="sm" variant="outline" className="mt-4" onClick={() => { setName(company.name); setEditing(true); }}>
+              <Pencil className="h-3.5 w-3.5 mr-1" /> Editar
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>Plan: <span className="font-medium capitalize text-foreground">{company.plan_name || 'free'}</span></span>
+          <span>ID: <span className="font-mono text-xs">{company.id.slice(0, 8)}…</span></span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
   if (!companyLoading && !company) return <CompanySetupCard />;
 
   const activeAdmins = members?.filter(m => ['admin', 'dispatcher', 'owner'].includes(m.role) && m.status === 'active').length || 0;
@@ -151,6 +211,9 @@ export default function CompanyPage() {
         </h1>
         <p className="text-muted-foreground">{company?.name}</p>
       </div>
+
+      {/* Company settings */}
+      <CompanySettingsCard company={company} />
 
       {/* Quotas */}
       <div className="grid gap-4 md:grid-cols-3">

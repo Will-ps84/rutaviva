@@ -39,6 +39,7 @@ export interface ActiveRoute {
   completed_stops: number;
   progress_percent: number;
   last_location?: DriverLocation;
+  stops?: { lat: number; lng: number; label: string; status: string }[];
 }
 
 export interface DispatchFilters {
@@ -251,7 +252,7 @@ export function useActiveRoutes() {
           vehicle_id,
           driver:profiles!routes_driver_id_fkey(id, full_name),
           vehicle:vehicles(id, plate, label),
-          route_stops(id, status)
+          route_stops(id, status, lat, lng, address_text, seq)
         `)
         .eq('company_id', company.id)
         .in('status', ['in_progress', 'published'])
@@ -276,6 +277,9 @@ export function useActiveRoutes() {
           total_stops: totalStops,
           completed_stops: completedStops,
           progress_percent: totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0,
+          stops: stops.filter((s: any) => s.lat && s.lng).map((s: any) => ({
+            lat: Number(s.lat), lng: Number(s.lng), label: s.address_text || '', status: s.status || 'pending',
+          })),
         } as ActiveRoute;
       });
     },

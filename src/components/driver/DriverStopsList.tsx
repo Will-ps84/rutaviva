@@ -149,9 +149,9 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                   </div>
                 </div>
 
-                {/* Row 2: phone */}
-                {stop.recipient_phone && (
-                  <div className="ml-11">
+                {/* Row 2: phone + navigation */}
+                <div className="ml-11 flex items-center gap-3 flex-wrap">
+                  {stop.recipient_phone && (
                     <a
                       href={`tel:${stop.recipient_phone}`}
                       className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
@@ -159,8 +159,37 @@ export function DriverStopsList({ stops, routeStatus, routeId, companyId, onStop
                       <Phone className="h-3 w-3" />
                       {stop.recipient_phone}
                     </a>
-                  </div>
-                )}
+                  )}
+                  {stop.lat && stop.lng ? (
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                      >
+                        <Navigation className="h-3 w-3" />
+                        Google Maps
+                      </a>
+                      <a
+                        href={`https://waze.com/ul?ll=${stop.lat},${stop.lng}&navigate=yes`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-purple-500 hover:underline"
+                      >
+                        <Navigation className="h-3 w-3" />
+                        Waze
+                      </a>
+                    </div>
+                  ) : stop.address_text ? (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address_text)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                    >
+                      <Navigation className="h-3 w-3" />
+                      Google Maps
+                    </a>
+                  ) : null}
+                </div>
 
                 {/* Row 3: action buttons — pending stop */}
                 {isRouteActive && isPendingStop && (

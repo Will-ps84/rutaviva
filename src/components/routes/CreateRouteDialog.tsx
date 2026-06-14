@@ -44,6 +44,10 @@ interface AddressEntry {
   lat: number | null;
   lng: number | null;
   geocoding: 'idle' | 'loading' | 'success' | 'failed';
+  recipientName?: string;
+  recipientPhone?: string;
+  notes?: string;
+  weightKg?: number;
 }
 
 function createEmptyEntry(): AddressEntry {
@@ -251,11 +255,26 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
       const firstCell = lines[0]?.split(',')[0]?.trim().toLowerCase() ?? '';
       const hasHeader = ['direccion', 'address', 'dirección', 'dir'].includes(firstCell);
       const dataLines = hasHeader ? lines.slice(1) : lines;
+      // Detect column positions from header
+      const headerCols = hasHeader ? lines[0].split(',').map(h => h.trim().toLowerCase()) : [];
+      const colIdx = (names: string[]) => names.map(n => headerCols.indexOf(n)).find(i => i >= 0) ?? -1;
+      const dirIdx = colIdx(['direccion', 'dirección', 'address', 'dir']);
+      const nameIdx = colIdx(['destinatario', 'nombre', 'recipient', 'name']);
+      const phoneIdx = colIdx(['telefono', 'teléfono', 'phone', 'tel']);
+      const notesIdx = colIdx(['notas', 'notes', 'observaciones']);
+      const weightIdx = colIdx(['peso_kg', 'peso', 'weight', 'kg']);
+
       setEntries(dataLines.map(line => {
-        // Extract first CSV column as address
         const cols = line.split(',');
-        const address = cols[0]?.trim() ?? line.trim();
-        return { address, lat: null, lng: null, geocoding: 'idle' as const };
+        const address = (dirIdx >= 0 ? cols[dirIdx] : cols[0])?.trim() ?? line.trim();
+        return {
+          address,
+          lat: null, lng: null, geocoding: 'idle' as const,
+          recipientName: nameIdx >= 0 ? cols[nameIdx]?.trim() : undefined,
+          recipientPhone: phoneIdx >= 0 ? cols[phoneIdx]?.trim() : undefined,
+          notes: notesIdx >= 0 ? cols[notesIdx]?.trim() : undefined,
+          weightKg: weightIdx >= 0 ? parseFloat(cols[weightIdx]) || undefined : undefined,
+        };
       }));
       setOptimizationSavingKm(null);
     };
@@ -311,7 +330,10 @@ export function CreateRouteDialog({ open, onOpenChange }: CreateRouteDialogProps
         status: 'pending' as const,
         planned_window_start: null,
         planned_window_end: null,
-        notes: null,
+        notes: entry.notes || null,
+        recipient_name: entry.recipientName || null,
+        recipient_phone: entry.recipientPhone || null,
+        weight_kg: entry.weightKg || null,
       }));
 
       await createStops.mutateAsync(stops);

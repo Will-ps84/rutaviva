@@ -133,28 +133,12 @@ export default function Dispatch() {
                 <div className="w-full h-full bg-muted flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : filteredLocations.length === 0 ? (
-                <div className="w-full h-full bg-muted flex items-center justify-center">
-                  <div className="text-center space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-muted-foreground/10 flex items-center justify-center mx-auto">
-                      <MapPin className="h-8 w-8 text-muted-foreground/50" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-muted-foreground">Ningún conductor en ruta ahora</p>
-                      <p className="text-sm text-muted-foreground/60">
-                        Los conductores aparecerán cuando inicien tracking desde /driver
-                      </p>
-                    </div>
-                  </div>
-                </div>
               ) : (
-                <RealtimeMapView 
-                  drivers={filteredLocations} 
+                <RealtimeMapView
+                  drivers={filteredLocations}
                   className="h-full"
-                  centerOn={selectedRouteLocation ? {
-                    lat: selectedRouteLocation.lat,
-                    lng: selectedRouteLocation.lng,
-                  } : undefined}
+                  centerOn={selectedRouteLocation ? { lat: selectedRouteLocation.lat, lng: selectedRouteLocation.lng } : undefined}
+                  stops={filteredRoutes.flatMap(r => r.stops ?? [])}
                 />
               )}
             </CardContent>

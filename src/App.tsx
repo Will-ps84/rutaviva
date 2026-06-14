@@ -23,6 +23,7 @@ const Settings = lazy(() => import('./pages/app/Settings'));
 const Reports = lazy(() => import('./pages/app/Reports'));
 const CompanyPage = lazy(() => import('./pages/app/Company'));
 const AdminPanel = lazy(() => import('./pages/app/AdminPanel'));
+const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
 const Driver = lazy(() => import('./pages/Driver'));
 const Track = lazy(() => import('./pages/Track'));
 
@@ -85,6 +86,9 @@ const App = () => (
                 </DriverRoute>
               }
             />
+
+            {/* Super Admin (no AppLayout, standalone) */}
+            <Route path="/superadmin" element={<S><SuperAdmin /></S>} />
 
             {/* Root redirect */}
             <Route path="/" element={<Navigate to="/choose-mode" replace />} />
