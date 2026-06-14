@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useGeolocation, GeolocationPosition } from './useGeolocation';
 import { toast } from '@/hooks/use-toast';
@@ -56,33 +56,39 @@ export function useLocationTracking({
     sendLocation(position);
   }, [sendLocation]);
 
+  const toastShownRef = useRef<Record<number, boolean>>({});
+
   const handleError = useCallback((error: GeolocationPositionError) => {
-    
-    
+    // Only show toast once per error code to avoid spam on retries
+    if (toastShownRef.current[error.code]) return;
+    toastShownRef.current[error.code] = true;
+    // Reset after 30s so it can show again if still failing
+    setTimeout(() => { toastShownRef.current[error.code] = false; }, 30000);
+
     let message = 'Error de GPS';
     switch (error.code) {
       case error.PERMISSION_DENIED:
-        message = 'Permiso de ubicación denegado. Por favor habilita el GPS.';
+        message = 'Permiso de ubicación denegado. Habilita el GPS en tu navegador.';
         break;
       case error.POSITION_UNAVAILABLE:
         message = 'Ubicación no disponible. Verifica tu conexión GPS.';
         break;
       case error.TIMEOUT:
-        message = 'Tiempo de espera agotado. Reintentando...';
+        message = 'Obteniendo señal GPS... puede tardar unos segundos.';
         break;
     }
-    
+
     toast({
       title: 'Error de ubicación',
       description: message,
-      variant: 'destructive',
+      variant: error.code === error.TIMEOUT ? 'default' : 'destructive',
     });
   }, []);
 
   const geolocation = useGeolocation({
     enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 0,
+    timeout: 30000,
+    maximumAge: 10000,
     throttleMs,
     onPosition: handlePositionUpdate,
     onError: handleError,

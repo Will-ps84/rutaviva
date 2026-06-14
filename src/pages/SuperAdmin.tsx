@@ -72,15 +72,7 @@ export default function SuperAdmin() {
 
   const createCompany = useMutation({
     mutationFn: async () => {
-      // 1. Create company
-      const { data: company, error: companyErr } = await supabase
-        .from('companies')
-        .insert({ name: companyName.trim(), plan_name: plan })
-        .select('id')
-        .single();
-      if (companyErr) throw companyErr;
-
-      // 2. Create auth user via admin API (Edge Function)
+      // Everything done server-side to avoid triggering handle_company_created with auth.uid()
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-company-admin`, {
         method: 'POST',
@@ -90,7 +82,8 @@ export default function SuperAdmin() {
           'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
-          company_id: company.id,
+          company_name: companyName.trim(),
+          plan,
           full_name: adminName.trim(),
           email: adminEmail.trim().toLowerCase(),
           password: adminPassword,

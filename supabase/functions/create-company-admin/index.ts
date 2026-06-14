@@ -30,31 +30,49 @@ serve(async (req) => {
     const { data: roleData } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("role", "super_admin").maybeSingle();
     if (!roleData) return json({ error: "Only super_admin can create companies" }, 403);
 
-    const { company_id, full_name, email, password } = await req.json();
-    if (!company_id || !email || !password || !full_name) return json({ error: "Missing fields" }, 400);
+    const { company_name, plan, full_name, email, password } = await req.json();
+    if (!company_name || !email || !password || !full_name) return json({ error: "Missing fields" }, 400);
     if (password.length < 8) return json({ error: "Password must be at least 8 characters" }, 400);
 
-    // Create auth user
+    // 1. Create company using service role (bypasses handle_company_created trigger's auth.uid())
+    const { data: company, error: companyErr } = await admin
+      .from("companies")
+      .insert({ name: company_name.trim(), plan_name: plan || "free" })
+      .select("id")
+      .single();
+    if (companyErr) return json({ error: companyErr.message }, 400);
+
+    const companyId = company.id;
+
+    // 2. Create auth user
     const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: { full_name },
     });
-    if (authErr) return json({ error: authErr.message }, 400);
+    if (authErr) {
+      // Rollback company
+      await admin.from("companies").delete().eq("id", companyId);
+      return json({ error: authErr.message }, 400);
+    }
 
     const userId = authUser.user.id;
 
-    // Set company_id on profile (bypass triggers)
-    await admin.rpc('exec_sql', { sql: `UPDATE public.profiles SET company_id = '${company_id}', full_name = '${full_name.replace(/'/g, "''")}' WHERE id = '${userId}'` }).catch(() => null);
+    // 3. Set profile company using the bypass function
+    const { error: profileErr } = await admin.rpc('set_profile_company', {
+      p_user_id: userId,
+      p_company_id: companyId,
+      p_full_name: full_name,
+    });
+    if (profileErr) {
+      await admin.from("profiles").upsert({ id: userId, full_name, company_id: companyId }, { onConflict: "id" });
+    }
 
-    // Upsert profile directly
-    await admin.from("profiles").upsert({ id: userId, full_name, company_id }, { onConflict: "id" });
+    // 4. Assign owner role
+    await admin.from("user_roles").insert({ user_id: userId, company_id: companyId, role: "owner", status: "active" });
 
-    // Assign owner role
-    await admin.from("user_roles").insert({ user_id: userId, company_id, role: "owner", status: "active" });
-
-    return json({ ok: true, user_id: userId });
+    return json({ ok: true, user_id: userId, company_id: companyId });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "Internal error" }, 500);
   }
